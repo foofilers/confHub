@@ -1,0 +1,335 @@
+swagger: '2.0'
+info:
+  version: '1.0.0'
+  title: 'ConfHub'
+
+basePath: /api
+schemes:
+  - http
+host: localhost:8080
+
+definitions:
+  ConfigurationEntries:
+    type: object
+    example: {"prop":"value","prop2":"value2" }
+  ApplicationConfig:
+    type: object
+    properties:
+      application:
+        type: string
+      version:
+        type: string
+      configuration:
+        $ref: '#/definitions/ConfigurationEntries'
+  User:
+    type: object
+    properties:
+      username:
+        type: string
+      password:
+        type: string
+      roles:
+        type: array
+        items:
+          type: string
+  Permission:
+    type: object
+      properties:
+        name:
+          type: string
+
+  Role:
+    type: object
+    properties:
+      name:
+        type: string
+      permissions:
+        type: array
+        items:
+          $ref: '#/definitions/Permission'
+
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login
+      parameters:
+        - name: username
+          in: formData
+          type: string
+          required: true
+        - name: password
+          type: password
+          in: formData
+          required: true
+      produces:
+        - text/plain
+      responses:
+        403:
+          description: authentication failed
+        200:
+          description: Login Ok
+          schema:
+            type: string
+            description: JWT token to pass to api_key
+
+  /auth/logout:
+    get:
+      tags:
+        - Authentication
+      summary: Logout
+      security:
+        - api_key: []
+      responses:
+        204:
+          description: User logged out
+
+  /conf/{app}/{version}:
+    parameters:
+      - name: app
+        required: true
+        type: string
+        in: path
+      - name: version
+        required: true
+        type: string
+        in: path
+    get:
+      tags:
+        - Configurations
+      summary: get the configuration entries for the app and version defined as parameters
+      security:
+        - api_key: []
+      produces:
+        - application/json
+      responses:
+        401:
+          description: unauthorized
+        403:
+          description: forbidden
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/ApplicationConfig'
+    put:
+      tags:
+        - Configurations
+      summary: Update/Create/Overwrite entire configuration entries
+      security:
+        - api_key: []
+      consumes:
+        - application/json
+      parameters:
+        - in: body
+          schema:
+            $ref: '#/definitions/ConfigurationEntries'
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        204:
+          description: configuration updated
+    delete:
+      tags:
+        - Configurations
+      summary: delete entire application version
+      operationId: deleteAppVersion
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        204:
+          description: configuration deleted
+
+  /conf/{app}/{version}/copy:
+    parameters:
+      - name: app
+        required: true
+        type: string
+        in: path
+      - name: version
+        required: true
+        type: string
+        in: path
+    post:
+      tags:
+        - Configurations
+      summary: copy a version to another
+      parameters:
+        - name: detination
+          in: query
+          required: true
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        204:
+          description: configuration copied
+
+  /conf/{app}/{version}/move:
+      parameters:
+        - name: app
+          required: true
+          type: string
+          in: path
+        - name: version
+          required: true
+          type: string
+          in: path
+      post:
+        tags:
+          - Configurations
+        summary: rename a version to another
+        parameters:
+          - name: detination
+            in: query
+            required: true
+        responses:
+          401:
+            description: not authenticated
+          403:
+            description: not authorized
+          204:
+            description: configuration copied
+
+  /value/{app}/{version}/{key}:
+    parameters:
+      - name: app
+        required: true
+        type: string
+        in: path
+      - name: version
+        required: true
+        type: string
+        in: path
+      - name: key
+        required: true
+        type: string
+        in: path
+        description: property key
+    get:
+      tags:
+        - Configuration Value
+      summary: get single configuration entry
+      produces:
+        - text/plain
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        200:
+          description: configuration content
+          schema:
+            type: string
+    put:
+      tags:
+        - Configuration Value
+      summary: update/create configuration entry
+      parameters:
+        - name: value
+          required: true
+          type: string
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        204:
+          description: configuration entry updated
+    delete:
+      tags:
+        - Configuration Value
+      summary: delete configuration entry
+      operationId:
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        204:
+          description: configuration entry deleted
+
+  /value/{app}/{version}/{key}/history:
+      parameters:
+        - name: app
+          required: true
+          type: string
+          in: path
+        - name: version
+          required: true
+          type: string
+          in: path
+        - name: key
+          required: true
+          type: string
+          in: path
+          description: property key
+      get:
+        tags:
+          - Configuration Value
+        summary: get the configuration value history
+        produces:
+          - text/plain
+        responses:
+          401:
+            description: not authenticated
+          403:
+            description: not authorized
+          200:
+            description: configuration content
+            schema:
+              type: array
+              items:
+                type: string
+  /users:
+    post:
+      tags:
+        - Users
+      summary: create a user
+      consumes:
+        - application/json
+      parameters:
+        - in: body
+          schema:
+            $ref: '#/definitions/User'
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        204:
+          description: user created
+
+  /roles:
+    get:
+      tags:
+        - Roles
+      summary: get roles
+      produces:
+        - application/json
+      responses:
+        401:
+          description: not authenticated
+        403:
+          description: not authorized
+        200:
+          description: list of roles
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Role'
+
+
+securityDefinitions:
+  api_key:
+    type: apiKey
+    name: Authorization
+    in: header
+
+

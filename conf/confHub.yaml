@@ -1,0 +1,8 @@
+version: 0.0.1b
+jwtSecretKey: asdikasjdiowquaswdas9802uejbdsyu
+pwdSecretKey: asdfhw21398712nw21ui873w121312kj
+etcd:
+  servers:
+    - http://127.0.0.1:2379
+  username: root
+  password: confHub
