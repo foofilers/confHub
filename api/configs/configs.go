@@ -3,12 +3,10 @@ package configs
 import (
 	iris "gopkg.in/kataras/iris.v6"
 	"github.com/Sirupsen/logrus"
-	"context"
 	"github.com/foofilers/confHub/etcd"
 	"github.com/foofilers/confHub/auth"
-	"github.com/coreos/etcd/clientv3"
-	"strings"
 	"github.com/foofilers/confHub/api/utils"
+	"github.com/foofilers/version"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
@@ -32,22 +30,15 @@ func getConfig(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	keyPrefix := appName + "." + appVersion
-	resp, err := etcdCl.Client.Get(context.TODO(), keyPrefix, clientv3.WithPrefix())
+	ver, err := version.Get(etcdCl, appName, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	if resp.Count == 0 {
-		ctx.NotFound()
+	cnf, err := ver.GetConfig(etcdCl)
+	if (utils.HandleError(ctx, err)) {
 		return
 	}
-	confMap := make(map[string]string)
-	for _, kv := range resp.Kvs {
-		logrus.Debugf("%+v", kv)
-		fullKey := string(kv.Key)
-		confMap[strings.Replace(fullKey, keyPrefix + ".", "", 1)] = string(kv.Value)
-	}
-	ctx.JSON(iris.StatusOK, confMap)
+	ctx.JSON(iris.StatusOK, cnf)
 }
 
 func putConfig(ctx *iris.Context) {
@@ -56,23 +47,19 @@ func putConfig(ctx *iris.Context) {
 	}
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
+	logrus.Infof("Put Configuration for app [%s] version:[%s]", appName, appVersion)
 	appConfigs := make(map[string]string)
-	if err := ctx.ReadJSON(appConfigs); utils.HandleEtcdErrorMsg(ctx, err, " putConfig: Parsing JSON body") {
+	if err := ctx.ReadJSON(&appConfigs); utils.HandleEtcdErrorMsg(ctx, err, " putConfig: Parsing JSON body") {
 		return
 	}
-	logrus.Infof("Get configuration for app: %s version:%s", appName, appVersion)
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	defer etcdCl.Client.Close()
-	txn := etcdCl.Client.Txn(context.TODO())
-	ops := make([]clientv3.Op, len(appConfigs), len(appConfigs))
-	for k, v := range appConfigs {
-		ops = append(ops, clientv3.OpPut(k, v))
-	}
-	_, err = txn.Then(ops...).Commit()
+	ver, err := version.Get(etcdCl, appName, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}
+	ver.OverwriteConfig(etcdCl, appConfigs)
+	ctx.SetStatusCode(iris.StatusNoContent)
 }

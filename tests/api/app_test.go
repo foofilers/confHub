@@ -6,14 +6,18 @@ import (
 	"gopkg.in/kataras/iris.v6"
 )
 
-func TestAddApplication(t *testing.T) {
+func CreateApp(t *testing.T, name string) {
 	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).SetFormData(map[string]string{
-		"name": "testApp",
+		"name": name,
 	}).Post(ServerUrl + "/api/apps")
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, 201)
+}
+
+func TestAddApplication(t *testing.T) {
+	CreateApp(t, "testApp")
 }
 
 func TestAddApplicationAlreadyExist(t *testing.T) {
