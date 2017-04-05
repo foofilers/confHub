@@ -2,6 +2,8 @@ package utils
 
 import "fmt"
 
+var InternalError = NewConfHubError("Internal error %s")
+
 type ConfHubError struct {
 	format string
 	params []interface{}

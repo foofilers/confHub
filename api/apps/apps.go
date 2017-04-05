@@ -13,6 +13,7 @@ func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	logrus.Info("initializing /apps api resources")
 	appsParty := router.Party("/apps", handlersFn...)
 	appsParty.Post("/", addApp)
+	appsParty.Get("/", listApp)
 	appsParty.Put("/:appName", updateApp)
 	appsParty.Delete("/:appName", deleteApp)
 	return appsParty
@@ -35,6 +36,19 @@ func addApp(ctx *iris.Context) {
 	}
 
 	ctx.SetStatusCode(iris.StatusCreated)
+}
+
+func listApp(ctx *iris.Context) {
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer etcdCl.Client.Close()
+	appLst, err := application.List(etcdCl)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	ctx.JSON(iris.StatusOK, appLst)
 }
 
 func updateApp(ctx *iris.Context) {
@@ -79,7 +93,6 @@ func deleteApp(ctx *iris.Context) {
 		return
 	}
 	if utils.HandleError(ctx, app.Delete(etcdCl)) {
-		logrus.Debug("AAHIA")
 		return
 	}
 	ctx.SetStatusCode(iris.StatusNoContent)

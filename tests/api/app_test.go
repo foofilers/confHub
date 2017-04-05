@@ -4,6 +4,7 @@ import (
 	"testing"
 	"gopkg.in/resty.v0"
 	"gopkg.in/kataras/iris.v6"
+	"fmt"
 )
 
 func CreateApp(t *testing.T, name string) {
@@ -100,6 +101,15 @@ func TestDeleteNotPresentApplication(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, iris.StatusNotFound)
+}
+
+func TestListApplications(t *testing.T) {
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Get(ServerUrl + "/api/apps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, iris.StatusOK)
+	fmt.Printf("%s", string(resp.Body()))
 }
 
 

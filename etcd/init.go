@@ -76,10 +76,12 @@ func updateSchema(fromVersion string) {
 
 func createBasicConfiguration(rootCl *EtcdClient) {
 	log.Info("Creating confhub configuration entries")
-	resp, err := rootCl.Client.Put(context.Background(), "confHub.version", "0.0.1b")
+	_, err := rootCl.Client.Put(context.Background(), "confHub.version", "0.0.1b")
 	if err != nil {
 		log.Fatal(err)
-	} else {
-		log.Debug(resp)
+	}
+	_, err = rootCl.Client.Put(context.Background(), "_applications", "")
+	if err != nil {
+		log.Fatal(err)
 	}
 }
