@@ -31,6 +31,14 @@ func PutConfig(t *testing.T, appName, appVersion string, configs map[string]stri
 	checkHttpStatus(t, resp, iris.StatusNoContent)
 }
 
+func DeleteConfig(t *testing.T, appName, appVersion string) {
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Delete(ServerUrl + "/api/configs/" + appName + "/" + appVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, iris.StatusNoContent)
+}
+
 func TestGetConfig(t *testing.T) {
 	appName := "ConfigApp1"
 	appVersion := "1.0.0"
@@ -44,5 +52,21 @@ func TestGetConfig(t *testing.T) {
 	if !reflect.DeepEqual(config, getConfig) {
 		t.Fatalf("map %+v are not equals to %+v", config, getConfig)
 	}
+}
 
+func TestDeleteConfig(t *testing.T) {
+	appName := "ConfigAppToDel"
+	appVersion := "1.0.0"
+	CreateApp(t, appName)
+	config := map[string]string{
+		"prop1":"val1",
+		"prop2":"val2",
+	}
+	PutConfig(t, appName, appVersion, config)
+	DeleteConfig(t, appName, appVersion)
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Get(ServerUrl + "/api/configs/" + appName + "/" + appVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, iris.StatusNotFound)
 }

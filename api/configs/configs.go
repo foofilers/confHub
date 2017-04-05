@@ -6,7 +6,7 @@ import (
 	"github.com/foofilers/confHub/etcd"
 	"github.com/foofilers/confHub/auth"
 	"github.com/foofilers/confHub/api/utils"
-	"github.com/foofilers/version"
+	"github.com/foofilers/configuration"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
@@ -14,6 +14,7 @@ func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	configParty := router.Party("/configs", handlersFn...)
 	configParty.Get("/:app/:version", getConfig)
 	configParty.Put("/:app/:version", putConfig)
+	configParty.Delete("/:app/:version", deleteConfig)
 	return configParty
 }
 
@@ -30,15 +31,19 @@ func getConfig(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	ver, err := version.Get(etcdCl, appName, appVersion);
+	appConf, err := configuration.Get(etcdCl, appName, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	cnf, err := ver.GetConfig(etcdCl)
+	cnf, err := appConf.GetConfig(etcdCl)
 	if (utils.HandleError(ctx, err)) {
 		return
 	}
-	ctx.JSON(iris.StatusOK, cnf)
+	if len(cnf) == 0 {
+		ctx.NotFound()
+	} else {
+		ctx.JSON(iris.StatusOK, cnf)
+	}
 }
 
 func putConfig(ctx *iris.Context) {
@@ -56,10 +61,32 @@ func putConfig(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	ver, err := version.Get(etcdCl, appName, appVersion);
+	appConf, err := configuration.Get(etcdCl, appName, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	ver.OverwriteConfig(etcdCl, appConfigs)
+	if utils.HandleError(ctx, appConf.SetConfig(etcdCl, appConfigs)) {
+		return
+	}
+	ctx.SetStatusCode(iris.StatusNoContent)
+}
+
+func deleteConfig(ctx *iris.Context) {
+	if (utils.MandatoryParams(ctx, "app", "version")) {
+		return
+	}
+	appName := ctx.Param("app")
+	appVersion := ctx.Param("version")
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	appConf, err := configuration.Get(etcdCl, appName, appVersion);
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	if utils.HandleError(ctx, appConf.Delete(etcdCl)) {
+		return
+	}
 	ctx.SetStatusCode(iris.StatusNoContent)
 }
