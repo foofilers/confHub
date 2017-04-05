@@ -79,7 +79,6 @@ func (app *App)Rename(etcdCl*etcd.EtcdClient, newName string) error {
 	if err != nil {
 		return err
 	}
-	kv := clientv3.NewKV(etcdCl.Client)
 
 	ops := make([]clientv3.Op, len(appConf) * 2, len(appConf) * 2)
 	i := 0
@@ -91,9 +90,30 @@ func (app *App)Rename(etcdCl*etcd.EtcdClient, newName string) error {
 		ops[i + 1] = clientv3.OpDelete(sourceKey)
 		i += 2
 	}
-	if _, err := kv.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
+	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		return err
 	}
 	app.Name = newName
+	return nil
+}
+
+func (app *App)Delete(etcdCl*etcd.EtcdClient) error {
+	logrus.Infof("deleting application %s ", app.Name)
+	appConf, err := app.GetConfiguration(etcdCl)
+	if err != nil {
+		return err
+	}
+	ops := make([]clientv3.Op, len(appConf), len(appConf))
+	i := 0
+	for k := range appConf {
+		sourceKey := app.Name + "." + k
+		logrus.Debugf("deleting %s", sourceKey)
+		ops[i] = clientv3.OpDelete(sourceKey)
+		i ++
+	}
+	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
+		logrus.Errorf("error deleting application %s:%s", app.Name, err)
+		return err
+	}
 	return nil
 }

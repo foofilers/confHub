@@ -67,10 +67,35 @@ func TestRenameAlreadyExistApplication(t *testing.T) {
 func TestRenameNotPresentApplication(t *testing.T) {
 	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).SetFormData(map[string]string{
 		"name": "newFakename",
-	}).Put(ServerUrl + "/api/apps/nopresentApplication")
+	}).Put(ServerUrl + "/api/apps/notPresentApp")
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, iris.StatusNotFound)
 }
+
+func TestDeleteApplication(t *testing.T) {
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).SetFormData(map[string]string{
+		"name": "toDelApp",
+	}).Post(ServerUrl + "/api/apps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, 201)
+
+	resp, err = resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Delete(ServerUrl + "/api/apps/toDelApp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, 204)
+}
+
+func TestDeleteNotPresentApplication(t *testing.T) {
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Delete(ServerUrl + "/api/apps/notPresentApp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, iris.StatusNotFound)
+}
+
 
