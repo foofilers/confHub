@@ -13,11 +13,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-
 var app *iris.Framework
 
 func Start(addr string) {
-	StartAsync(addr,false)
+	StartAsync(addr, false)
 }
 
 func StartAsync(addr string, async bool) {
@@ -39,11 +38,13 @@ func StartAsync(addr string, async bool) {
 	api.InitApi(app.Party("/api"))
 	if (async) {
 		go app.Listen(addr)
+	} else {
+		app.Listen(addr)
 	}
 }
 
-func Stop(){
-	if app!=nil {
+func Stop() {
+	if app != nil {
 		app.Shutdown(context.TODO());
 	}
 }

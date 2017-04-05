@@ -14,8 +14,8 @@ import (
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	logrus.Info("initializing /config api resources")
 	configParty := router.Party("/configs", handlersFn...)
-	configParty.Get("/:app/:version", GetConfig)
-	configParty.Put("/:app/:version", PutConfig)
+	configParty.Get("/:app/:version", getConfig)
+	configParty.Put("/:app/:version", putConfig)
 	return configParty
 }
 
@@ -71,7 +71,7 @@ func putConfig(ctx *iris.Context) {
 	for k, v := range appConfigs {
 		ops = append(ops, clientv3.OpPut(k, v))
 	}
-	_, err = txn.Then(ops).Commit()
+	_, err = txn.Then(ops...).Commit()
 	if utils.HandleEtcdError(ctx, err) {
 		return
 	}

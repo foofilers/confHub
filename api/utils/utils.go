@@ -29,10 +29,9 @@ func HandleEtcdErrorMsg(ctx *iris.Context, err error, format string, values ...i
 	return true
 }
 
-
-func MandatoryParams(ctx *iris.Context, parameters ...string) bool{
-	for _,par:=range parameters{
-		if ctx.Param(par)==nil && ctx.FormValue(par)==nil{
+func MandatoryParams(ctx *iris.Context, parameters ...string) bool {
+	for _, par := range parameters {
+		if len(ctx.Param(par)) == 0 && len(ctx.FormValue(par)) == 0 {
 			ctx.EmitError(iris.StatusPreconditionFailed)
 			return true
 		}
