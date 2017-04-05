@@ -44,6 +44,6 @@ func InitApi(router *iris.Router) {
 	auth_api.InitAuth(router)
 	users.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
 	values.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
-	app.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
+	apps.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
 	configs.InitAPI(router,jwtMiddleware.Serve,loggedUserMiddleware)
 }

@@ -27,14 +27,14 @@ func getConfig(ctx *iris.Context) {
 	appVersion := ctx.Param("version")
 	logrus.Infof("Get configuration for app: %s version:%s", appName, appVersion)
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
-	if utils.HandleEtcdError(ctx, err) {
+	if utils.HandleError(ctx, err) {
 		return
 	}
 	defer etcdCl.Client.Close()
 
 	keyPrefix := appName + "." + appVersion
 	resp, err := etcdCl.Client.Get(context.TODO(), keyPrefix, clientv3.WithPrefix())
-	if utils.HandleEtcdError(ctx, err) {
+	if utils.HandleError(ctx, err) {
 		return
 	}
 	if resp.Count == 0 {
@@ -62,7 +62,7 @@ func putConfig(ctx *iris.Context) {
 	}
 	logrus.Infof("Get configuration for app: %s version:%s", appName, appVersion)
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
-	if utils.HandleEtcdError(ctx, err) {
+	if utils.HandleError(ctx, err) {
 		return
 	}
 	defer etcdCl.Client.Close()
@@ -72,7 +72,7 @@ func putConfig(ctx *iris.Context) {
 		ops = append(ops, clientv3.OpPut(k, v))
 	}
 	_, err = txn.Then(ops...).Commit()
-	if utils.HandleEtcdError(ctx, err) {
+	if utils.HandleError(ctx, err) {
 		return
 	}
 }

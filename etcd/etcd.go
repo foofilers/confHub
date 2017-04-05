@@ -9,6 +9,8 @@ import (
 	"github.com/foofilers/confHub/auth"
 	"github.com/coreos/pkg/cryptoutil"
 	"encoding/base64"
+	"strings"
+	"context"
 )
 
 type EtcdClient struct {
@@ -53,4 +55,18 @@ func LoggedClient(user auth.LoggedUser) (*EtcdClient, error) {
 		return nil, err
 	}
 	return New(user.Username, string(clearedPassword))
+}
+
+func (this *EtcdClient) GetWithPrefix(prefix string) (map[string]string, error) {
+	resp, err := this.Client.Get(context.TODO(), prefix, clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+	confMap := make(map[string]string)
+	for _, kv := range resp.Kvs {
+		log.Debugf("%+v", kv)
+		fullKey := string(kv.Key)
+		confMap[strings.Replace(fullKey, prefix + ".", "", 1)] = string(kv.Value)
+	}
+	return confMap, nil
 }
