@@ -68,6 +68,6 @@ func addUser(ctx *iris.Context) {
 			return
 		}
 	}
-	ctx.SetStatusCode(iris.StatusNoContent)
+	ctx.SetStatusCode(iris.StatusCreated)
 
 }

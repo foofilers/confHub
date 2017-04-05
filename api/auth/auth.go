@@ -34,6 +34,7 @@ func login(ctx *iris.Context) {
 		ctx.EmitError(iris.StatusForbidden)
 		return
 	}
+	defer etcdCl.Client.Close()
 	// retrieve user information
 	userInfo, err := etcdCl.Client.UserGet(context.TODO(), username)
 	if err != nil {

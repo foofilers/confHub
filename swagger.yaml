@@ -32,21 +32,7 @@ definitions:
         type: array
         items:
           type: string
-  Permission:
-    type: object
-      properties:
-        name:
-          type: string
 
-  Role:
-    type: object
-    properties:
-      name:
-        type: string
-      permissions:
-        type: array
-        items:
-          $ref: '#/definitions/Permission'
 
 
 paths:
@@ -86,7 +72,29 @@ paths:
         204:
           description: User logged out
 
-  /conf/{app}/{version}:
+  /apps:
+    post:
+      tags:
+        - Applications
+      summary: Add an application
+      description: The relative roles [app]R and [app]RW, will be created
+      security:
+        - api_key: []
+      parameters:
+        - name: name
+          in: formData
+          type: string
+      responses:
+        401:
+          description: unauthorized
+        403:
+          description: forbidden
+        409:
+          description: application already exists
+        201:
+          description: application created
+
+  /configs/{app}/{version}:
     parameters:
       - name: app
         required: true
@@ -145,7 +153,7 @@ paths:
         204:
           description: configuration deleted
 
-  /conf/{app}/{version}/copy:
+  /configs/{app}/{version}/copy:
     parameters:
       - name: app
         required: true
@@ -171,7 +179,7 @@ paths:
         204:
           description: configuration copied
 
-  /conf/{app}/{version}/move:
+  /configs/{app}/{version}/move:
       parameters:
         - name: app
           required: true
@@ -235,6 +243,7 @@ paths:
         - name: value
           required: true
           type: string
+          in: formData
       responses:
         401:
           description: not authenticated
@@ -303,7 +312,7 @@ paths:
           description: not authenticated
         403:
           description: not authorized
-        204:
+        201:
           description: user created
 
   /roles:
@@ -323,7 +332,7 @@ paths:
           schema:
             type: array
             items:
-              $ref: '#/definitions/Role'
+              type: string
 
 
 securityDefinitions:

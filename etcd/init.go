@@ -8,21 +8,23 @@ import (
 )
 
 func InitEtcd() {
-	rootCl, err := New(cnf.GetString("etcd.username"), cnf.GetString("etcd.password"))
+	log.Info("Initializing Etcd")
+	rootCl, err := New("root", cnf.GetString("etcd.password"))
 	if err != nil {
 		if err == rpctypes.ErrAuthFailed {
 			//try to enable auth
 			initEtcdAuthentication()
-			if rootCl, err = New(cnf.GetString("etcd.username"), cnf.GetString("etcd.password")); err != nil {
+			if rootCl, err = New("root", cnf.GetString("etcd.password")); err != nil {
 				log.Fatal(err)
 			}
+		} else {
+			log.Fatal(err)
 		}
-		log.Fatal(err)
 	}
 	defer rootCl.Client.Close()
 	log.Debug("Checking confHub settings in etcd system")
 	if resp, err := rootCl.Client.Get(context.TODO(), "confHub.version"); err != nil {
-		log.Fatal(err)
+		log.Fatal("confHub.version get ", err)
 	} else {
 		if len(resp.Kvs) == 0 {
 			createBasicConfiguration(rootCl)
@@ -34,6 +36,7 @@ func InitEtcd() {
 			}
 		}
 	}
+	log.Info("Etcd Initialized")
 }
 
 func initEtcdAuthentication() {
@@ -42,7 +45,7 @@ func initEtcdAuthentication() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if _, err = rootCl.Client.UserAdd(context.TODO(), "root", "confHub"); err != nil {
+	if _, err = rootCl.Client.UserAdd(context.TODO(), "root", cnf.GetString("etcd.password")); err != nil {
 		log.Fatal(err)
 	}
 
@@ -57,10 +60,11 @@ func initEtcdAuthentication() {
 		log.Fatal(err)
 	}
 
-	rootCl, err = New(cnf.GetString("etcd.username"), cnf.GetString("etcd.password"))
+	rootCl, err = New("root", cnf.GetString("etcd.password"))
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Info("Etcd Web authentication Enabled")
 }
 
 /**

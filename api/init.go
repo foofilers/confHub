@@ -2,7 +2,6 @@ package api
 
 import (
 	"gopkg.in/kataras/iris.v6"
-	"github.com/foofilers/confHub/api/config"
 	"github.com/dgrijalva/jwt-go"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 	cnf "github.com/spf13/viper"
@@ -10,7 +9,9 @@ import (
 	"github.com/foofilers/confHub/api/users"
 	"github.com/Sirupsen/logrus"
 	"github.com/foofilers/confHub/auth"
-	"github.com/foofilers/confHub/api/roles"
+	"github.com/foofilers/confHub/api/apps"
+	"github.com/foofilers/confHub/api/values"
+	"github.com/foofilers/confHub/api/configs"
 )
 
 var jwtMiddleware *jwtmiddleware.Middleware
@@ -42,6 +43,7 @@ func InitApi(router *iris.Router) {
 
 	auth_api.InitAuth(router)
 	users.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
-	config.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
-	roles.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
+	values.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
+	app.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
+	configs.InitAPI(router,jwtMiddleware.Serve,loggedUserMiddleware)
 }
