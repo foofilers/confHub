@@ -6,7 +6,7 @@ import (
 	"github.com/foofilers/confHub/etcd"
 	"github.com/foofilers/confHub/auth"
 	"github.com/foofilers/confHub/api/utils"
-	"github.com/foofilers/configuration"
+	"github.com/foofilers/confHub/configuration"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
