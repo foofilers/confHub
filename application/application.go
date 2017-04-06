@@ -9,14 +9,15 @@ import (
 	"strings"
 )
 
+const CONFHUB_APPLICATIONS_PREFIX = "confHub.applications."
+
 type App struct {
 	Name      string
 	CreatedAt time.Time
 }
 
 func Exists(etcdCl*etcd.EtcdClient, name string) (bool, error) {
-	key := name + "._created"
-	getResp, err := etcdCl.Client.Get(context.TODO(), key, clientv3.WithCountOnly())
+	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX + name, clientv3.WithCountOnly())
 	if err != nil {
 		logrus.Error(err)
 		return false, err
@@ -44,22 +45,33 @@ func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
 	return app, nil
 }
 
+func ListNames(etcdCl *etcd.EtcdClient) ([]string, error) {
+	logrus.Info("Getting application list")
+	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	appNames := make([]string, 0)
+	if err != nil {
+		logrus.Error(err)
+		return appNames, err
+	}
+
+	for _, k := range getResp.Kvs {
+		appName := strings.Replace(string(k.Key), CONFHUB_APPLICATIONS_PREFIX, "", 1)
+		logrus.Debugf("Found app %s", appName)
+		appNames = append(appNames, appName)
+	}
+	return appNames, nil
+}
+
 func List(etcdCl *etcd.EtcdClient) ([]*App, error) {
 	logrus.Info("Getting application list")
-	getResp, err := etcdCl.Client.Get(context.TODO(), "a", clientv3.WithFromKey())
 	apps := make([]*App, 0)
+
+	appNames, err := ListNames(etcdCl)
 	if err != nil {
 		logrus.Error(err)
 		return apps, err
 	}
-	appNames := make(map[string]bool)
-	for _, k := range getResp.Kvs {
-		appName := strings.Split(string(k.Key), ".")[0]
-		appNames[appName] = true
-	}
-
-	for appName := range appNames {
-		logrus.Debugf("Found app %s", appName)
+	for _, appName := range appNames {
 		app, err := Get(etcdCl, appName)
 		if err != nil {
 			return apps, err
@@ -77,18 +89,21 @@ func Create(etcdCl *etcd.EtcdClient, name string) (*App, error) {
 	if exists {
 		return nil, AppAlreadyExistError.Details(name)
 	}
-	key := name + "._created"
+
+	ops := make([]clientv3.Op, 2, 2)
+
 	app := &App{Name:name, CreatedAt:time.Now()}
-	if _, err := etcdCl.Client.Put(context.TODO(), key, app.CreatedAt.Format(time.RFC3339)); err != nil {
+	ops[0] = clientv3.OpPut(name + "._created", app.CreatedAt.Format(time.RFC3339))
+	ops[1] = clientv3.OpPut(CONFHUB_APPLICATIONS_PREFIX + name, "true")
+
+	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		return nil, err
 	}
 
-	// creating roles
-	for _, suffix := range []string{"RW", "R"} {
-		if _, err := etcdCl.Client.RoleAdd(context.TODO(), name + suffix); err != nil {
-			return nil, err
-		}
+	if err := createAppRoles(etcdCl, name); err != nil {
+		return nil, err;
 	}
+
 	return app, nil
 }
 
@@ -106,7 +121,7 @@ func (app *App) Rename(etcdCl *etcd.EtcdClient, newName string) error {
 		return err
 	}
 
-	ops := make([]clientv3.Op, len(appConf) * 2, len(appConf) * 2)
+	ops := make([]clientv3.Op, (len(appConf) * 2) + 2, (len(appConf) * 2) + 2)
 	i := 0
 	for k, v := range appConf {
 		destKey := newName + "." + k
@@ -116,10 +131,81 @@ func (app *App) Rename(etcdCl *etcd.EtcdClient, newName string) error {
 		ops[i + 1] = clientv3.OpDelete(sourceKey)
 		i += 2
 	}
+	//update applications list
+	ops[i] = clientv3.OpPut(CONFHUB_APPLICATIONS_PREFIX + newName, "true")
+	i++
+	ops[i] = clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name)
+
 	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		return err
 	}
+
+
+	//regenerate grants
+	if err := createAppRoles(etcdCl, newName); err != nil {
+		return err;
+	}
+
+	//moving users to new role
+	usersResp, err := etcdCl.Client.UserList(context.TODO())
+	if err != nil {
+		return err
+	}
+	for _, username := range usersResp.Users {
+		userResp, err := etcdCl.Client.UserGet(context.TODO(), username)
+		if err != nil {
+			return err
+		}
+		for _, role := range userResp.Roles {
+			if role == app.Name + "R" {
+				logrus.Infof("add role %s to user %s", newName + "R", username)
+				if _, err := etcdCl.Client.UserGrantRole(context.TODO(), username, newName + "R"); err != nil {
+					return err
+				}
+			}
+			if role == app.Name + "RW" {
+				logrus.Infof("add role %s to user %s", newName + "RW", username)
+				if _, err := etcdCl.Client.UserGrantRole(context.TODO(), username, newName + "RW"); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err := app.removeAppRoles(etcdCl); err != nil {
+		return err
+	}
+
 	app.Name = newName
+	return nil
+}
+
+func createAppRoles(etcdCl *etcd.EtcdClient, appName string) error {
+	// creating roles
+	for _, suffix := range []string{"RW", "R"} {
+		if _, err := etcdCl.Client.RoleAdd(context.TODO(), appName + suffix); err != nil {
+			return err
+		}
+	}
+	// associate roles to permission
+	if _, err := etcdCl.Client.RoleGrantPermission(context.TODO(), appName + "RW", appName + ".", "", clientv3.PermissionType(clientv3.PermReadWrite)); err != nil {
+		return err
+	}
+	if _, err := etcdCl.Client.RoleGrantPermission(context.TODO(), appName + "R", appName + ".", "", clientv3.PermissionType(clientv3.PermRead)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (app *App) removeAppRoles(etcdCl *etcd.EtcdClient) error {
+	//remove old permission
+	logrus.Infof("delete role %s", app.Name + "R")
+	if _, err := etcdCl.Client.RoleDelete(context.TODO(), app.Name + "R"); err != nil {
+		return err
+	}
+	logrus.Infof("delete role %s", app.Name + "RW")
+	if _, err := etcdCl.Client.RoleDelete(context.TODO(), app.Name + "RW"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -129,7 +215,7 @@ func (app *App) Delete(etcdCl *etcd.EtcdClient) error {
 	if err != nil {
 		return err
 	}
-	ops := make([]clientv3.Op, len(appConf), len(appConf))
+	ops := make([]clientv3.Op, len(appConf) + 1, len(appConf) + 1)
 	i := 0
 	for k := range appConf {
 		sourceKey := app.Name + "." + k
@@ -137,8 +223,14 @@ func (app *App) Delete(etcdCl *etcd.EtcdClient) error {
 		ops[i] = clientv3.OpDelete(sourceKey)
 		i ++
 	}
+	ops[i] = clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name)
+
 	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		logrus.Errorf("error deleting application %s:%s", app.Name, err)
+		return err
+	}
+
+	if err := app.removeAppRoles(etcdCl); err != nil {
 		return err
 	}
 	return nil

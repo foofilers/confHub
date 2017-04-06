@@ -7,14 +7,30 @@ import (
 	"github.com/foofilers/confHub/etcd"
 	"golang.org/x/net/context"
 	"github.com/foofilers/confHub/auth"
-	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/foofilers/confHub/api/utils"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	logrus.Info("initializing /users api resources")
 	usersParty := router.Party("/users", handlersFn...)
 	usersParty.Post("/", addUser)
+	usersParty.Put("/:username", updateUser)
 	return usersParty
+}
+
+func createUser(etcdCl *etcd.EtcdClient, user *models.User) error {
+	// adding user
+	if _, err := etcdCl.Client.UserAdd(context.TODO(), user.Username, user.Password); err != nil {
+		return err
+	}
+
+	// setting user roles
+	for _, role := range user.Roles {
+		if _, err := etcdCl.Client.UserGrantRole(context.TODO(), user.Username, role); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func addUser(ctx *iris.Context) {
@@ -27,47 +43,79 @@ func addUser(ctx *iris.Context) {
 	logrus.Debugf("adding user: %+v", user)
 
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
-	if err != nil {
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer etcdCl.Client.Close()
+	if utils.HandleError(ctx, createUser(etcdCl, user)) {
+		return
+	}
+	ctx.SetStatusCode(iris.StatusCreated)
+
+}
+
+func updateUser(ctx *iris.Context) {
+	username := ctx.Param("username")
+	logrus.Infof("Updating user %s", username)
+
+	userUpd := &models.User{}
+	if err := ctx.ReadJSON(userUpd); err != nil {
 		logrus.Error(err)
 		ctx.EmitError(iris.StatusInternalServerError)
 		return
 	}
+	logrus.Debugf("updating user %s with data: %+v", username, userUpd)
 
-	//check role presence
-	for _, role := range user.Roles {
-		if _, err := etcdCl.Client.RoleGet(context.TODO(), role); err != nil {
-			if err == rpctypes.ErrRoleNotFound {
-				ctx.EmitError(iris.StatusPreconditionFailed)
-				ctx.Writef(" No role found with name:%s", role)
-				return
-			} else {
-				logrus.Error(err)
-				ctx.EmitError(iris.StatusInternalServerError)
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer etcdCl.Client.Close()
+	userResp, err := etcdCl.Client.UserGet(context.TODO(), username)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	if username != userUpd.Username {
+		//renaming
+		if utils.HandleError(ctx, createUser(etcdCl, userUpd)) {
+			return
+		}
+		etcdCl.Client.UserDelete(context.TODO(), username)
+	} else {
+		if len(userUpd.Password) > 0 {
+			if _, err := etcdCl.Client.UserChangePassword(context.TODO(), username, userUpd.Password); utils.HandleError(ctx, err) {
 				return
 			}
 		}
-	}
-
-	// adding user
-	if _, err = etcdCl.Client.UserAdd(context.TODO(), user.Username, user.Password); err != nil {
-		if err == rpctypes.ErrUserAlreadyExist {
-			ctx.EmitError(iris.StatusPreconditionFailed)
-			ctx.Writef(" User %s already exists", user.Username)
-			return
-		} else {
-			logrus.Error(err)
-			ctx.EmitError(iris.StatusInternalServerError)
-			return
+		roleMap := make(map[string]bool)
+		for _, role := range userUpd.Roles {
+			roleMap[role] = true
+		}
+		//remove role
+		currRoleMap := make(map[string]bool)
+		for _, currRole := range userResp.Roles {
+			currRoleMap[currRole] = true
+			if _, ok := roleMap[currRole]; !ok {
+				//revoke role
+				logrus.Infof("Revoke role %s from user %s",currRole,username)
+				if _, err := etcdCl.Client.UserRevokeRole(context.TODO(), username, currRole); utils.HandleError(ctx, err) {
+					//TODO fatalError or warning??
+					return
+				}
+			}
+		}
+		//adding role
+		for role:=range roleMap{
+			if _,ok:=currRoleMap[role];!ok{
+				//add grant
+				logrus.Infof("Grant role %s from user %s",role,username)
+				if _, err := etcdCl.Client.UserGrantRole(context.TODO(), username, role); utils.HandleError(ctx, err) {
+					//TODO fatalError or warning??
+					return
+				}
+			}
 		}
 	}
-	// setting user roles
-	for _, role := range user.Roles {
-		if _, err = etcdCl.Client.UserGrantRole(context.TODO(), user.Username, role); err != nil {
-			logrus.Error(err)
-			ctx.EmitError(iris.StatusInternalServerError)
-			return
-		}
-	}
-	ctx.SetStatusCode(iris.StatusCreated)
-
+	ctx.SetStatusCode(iris.StatusNoContent)
 }

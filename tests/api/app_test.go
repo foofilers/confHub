@@ -49,6 +49,18 @@ func TestRenameApplication(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, 204)
+
+	apps := GetListApplications(t)
+	appFound := false
+	for _, app := range apps {
+		if app["Name"] == "newName" {
+			appFound = true
+		}
+	}
+	if !appFound {
+		t.Fatal("app not found")
+	}
+
 }
 
 func TestRenameAlreadyExistApplication(t *testing.T) {
@@ -93,6 +105,17 @@ func TestDeleteApplication(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, 204)
+
+	apps := GetListApplications(t)
+	appFound := false
+	for _, app := range apps {
+		if app["Name"] == "toDelApp" {
+			appFound = true
+		}
+	}
+	if appFound {
+		t.Fatalf("apps should not exist")
+	}
 }
 
 func TestDeleteNotPresentApplication(t *testing.T) {
@@ -103,10 +126,7 @@ func TestDeleteNotPresentApplication(t *testing.T) {
 	checkHttpStatus(t, resp, iris.StatusNotFound)
 }
 
-func TestListApplications(t *testing.T) {
-	CreateApp(t, "app1")
-	CreateApp(t, "app2")
-
+func GetListApplications(t *testing.T) []map[string]interface{} {
 	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Get(ServerUrl + "/api/apps")
 	if err != nil {
 		t.Fatal(err)
@@ -116,6 +136,14 @@ func TestListApplications(t *testing.T) {
 	if err := json.Unmarshal(resp.Body(), &apps); err != nil {
 		t.Fatal(err)
 	}
+	return apps
+}
+
+func TestListApplications(t *testing.T) {
+	CreateApp(t, "app1")
+	CreateApp(t, "app2")
+
+	apps := GetListApplications(t)
 	app1Found := false;
 	app2Found := false
 	for _, app := range apps {

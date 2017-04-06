@@ -23,6 +23,9 @@ func HandleEtcdErrorMsg(ctx *iris.Context, err error, format string, values ...i
 	case rpctypes.ErrKeyNotFound, rpctypes.ErrUserNotFound :
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusForbidden)
+	case rpctypes.ErrRoleNotFound:
+		logrus.Warnf(format, values...)
+		ctx.EmitError(iris.StatusPreconditionFailed)
 	case rpctypes.ErrDuplicateKey:
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusConflict)
