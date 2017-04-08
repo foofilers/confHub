@@ -14,7 +14,9 @@ func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	logrus.Info("initializing /users api resources")
 	usersParty := router.Party("/users", handlersFn...)
 	usersParty.Post("/", addUser)
+	usersParty.Get("/", listUsers)
 	usersParty.Put("/:username", updateUser)
+	usersParty.Delete("/:username", deleteUser)
 	return usersParty
 }
 
@@ -98,7 +100,7 @@ func updateUser(ctx *iris.Context) {
 			currRoleMap[currRole] = true
 			if _, ok := roleMap[currRole]; !ok {
 				//revoke role
-				logrus.Infof("Revoke role %s from user %s",currRole,username)
+				logrus.Infof("Revoke role %s from user %s", currRole, username)
 				if _, err := etcdCl.Client.UserRevokeRole(context.TODO(), username, currRole); utils.HandleError(ctx, err) {
 					//TODO fatalError or warning??
 					return
@@ -106,16 +108,45 @@ func updateUser(ctx *iris.Context) {
 			}
 		}
 		//adding role
-		for role:=range roleMap{
-			if _,ok:=currRoleMap[role];!ok{
+		for role := range roleMap {
+			if _, ok := currRoleMap[role]; !ok {
 				//add grant
-				logrus.Infof("Grant role %s from user %s",role,username)
+				logrus.Infof("Grant role %s from user %s", role, username)
 				if _, err := etcdCl.Client.UserGrantRole(context.TODO(), username, role); utils.HandleError(ctx, err) {
 					//TODO fatalError or warning??
 					return
 				}
 			}
 		}
+	}
+	ctx.SetStatusCode(iris.StatusNoContent)
+}
+
+func listUsers(ctx *iris.Context) {
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer etcdCl.Client.Close()
+	usersResp, err := etcdCl.Client.UserList(context.TODO())
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	ctx.JSON(iris.StatusOK,usersResp.Users)
+}
+
+func deleteUser(ctx *iris.Context) {
+	username := ctx.Param("username")
+	logrus.Infof("Deleting user [%s]", username)
+
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer etcdCl.Client.Close()
+	if _, err := etcdCl.Client.UserDelete(context.TODO(), username); utils.HandleError(ctx, err) {
+		logrus.Errorf("mmm")
+		return
 	}
 	ctx.SetStatusCode(iris.StatusNoContent)
 }

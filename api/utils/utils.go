@@ -5,6 +5,7 @@ import (
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/Sirupsen/logrus"
 	"github.com/foofilers/confHub/application"
+	"reflect"
 )
 
 func HandleError(ctx *iris.Context, err error) bool {
@@ -16,11 +17,9 @@ func HandleEtcdErrorMsg(ctx *iris.Context, err error, format string, values ...i
 		return false
 	}
 	values = append(values, err)
+	logrus.Debugf("Error class:%s",reflect.TypeOf(err))
 	switch err {
 	case rpctypes.ErrAuthFailed, rpctypes.ErrInvalidAuthToken :
-		logrus.Warnf(format, values...)
-		ctx.EmitError(iris.StatusForbidden)
-	case rpctypes.ErrKeyNotFound, rpctypes.ErrUserNotFound :
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusForbidden)
 	case rpctypes.ErrRoleNotFound:
@@ -32,7 +31,7 @@ func HandleEtcdErrorMsg(ctx *iris.Context, err error, format string, values ...i
 	case application.AppAlreadyExistError:
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusConflict)
-	case application.AppNotFoundError:
+	case application.AppNotFoundError, rpctypes.ErrUserNotFound:
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusNotFound)
 	default:

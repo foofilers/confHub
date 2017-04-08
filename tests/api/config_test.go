@@ -37,6 +37,7 @@ func DeleteConfig(t *testing.T, appName, appVersion string) {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, iris.StatusNoContent)
+
 }
 
 func TestGetConfig(t *testing.T) {
@@ -69,4 +70,5 @@ func TestDeleteConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, iris.StatusNotFound)
+
 }
