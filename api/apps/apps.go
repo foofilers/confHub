@@ -14,6 +14,7 @@ func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	appsParty := router.Party("/apps", handlersFn...)
 	appsParty.Post("/", addApp)
 	appsParty.Get("/", listApp)
+	appsParty.Get("/:appName", getApp)
 	appsParty.Put("/:appName", updateApp)
 	appsParty.Delete("/:appName", deleteApp)
 	return appsParty
@@ -50,6 +51,22 @@ func listApp(ctx *iris.Context) {
 	}
 	ctx.JSON(iris.StatusOK, appLst)
 }
+
+func getApp(ctx *iris.Context) {
+	appName := ctx.Param("appName")
+	logrus.Infof("Get application %s",appName)
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer etcdCl.Client.Close()
+	app, err := application.Get(etcdCl,appName)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	ctx.JSON(iris.StatusOK, app)
+}
+
 
 func updateApp(ctx *iris.Context) {
 	if utils.MandatoryFormParams(ctx, "name") {

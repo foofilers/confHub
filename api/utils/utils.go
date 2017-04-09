@@ -45,6 +45,7 @@ func HandleEtcdErrorMsg(ctx *iris.Context, err error, format string, values ...i
 func MandatoryParams(ctx *iris.Context, parameters ...string) bool {
 	for _, par := range parameters {
 		if len(ctx.Param(par)) == 0 && len(ctx.FormValue(par)) == 0 {
+			logrus.Warnf("no parameter %s found",par)
 			ctx.EmitError(iris.StatusPreconditionFailed)
 			return true
 		}
@@ -55,6 +56,7 @@ func MandatoryParams(ctx *iris.Context, parameters ...string) bool {
 func MandatoryFormParams(ctx *iris.Context, parameters ...string) bool {
 	for _, par := range parameters {
 		if len(ctx.FormValue(par)) == 0 {
+			logrus.Warnf("no form value %s found",par)
 			ctx.EmitError(iris.StatusPreconditionFailed)
 			return true
 		}

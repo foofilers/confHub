@@ -12,8 +12,8 @@ import (
 const CONFHUB_APPLICATIONS_PREFIX = "confHub.applications."
 
 type App struct {
-	Name      string
-	CreatedAt time.Time
+	Name      string `json:"name"`
+	CreatedAt time.Time`json:"createdAt"`
 }
 
 func Exists(etcdCl*etcd.EtcdClient, name string) (bool, error) {
@@ -47,7 +47,7 @@ func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
 
 func ListNames(etcdCl *etcd.EtcdClient) ([]string, error) {
 	logrus.Info("Getting application list")
-	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly(),clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	appNames := make([]string, 0)
 	if err != nil {
 		logrus.Error(err)

@@ -28,7 +28,13 @@ func StartAsync(addr string, async bool) {
 	app = iris.New()
 	app.Adapt(iris.DevLogger())
 	app.Adapt(httprouter.New())
-	app.Adapt(cors.Default())
+	app.Adapt(cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: true,
+		AllowedMethods:[]string{"GET","POST","PUT","DELETE"},
+		AllowedHeaders:[]string{"*"},
+		Debug:false,
+	}))
 	app.Adapt(view.HTML("./public", ".html"))
 
 	app.Get("/", func(ctx *iris.Context) {
