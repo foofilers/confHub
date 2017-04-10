@@ -3,10 +3,10 @@ package values
 import (
 	iris "gopkg.in/kataras/iris.v6"
 	"github.com/Sirupsen/logrus"
-	"context"
 	"github.com/foofilers/confHub/etcd"
-	"github.com/coreos/etcd/client"
 	"github.com/foofilers/confHub/auth"
+	"github.com/foofilers/confHub/api/utils"
+	"github.com/foofilers/confHub/configuration"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
@@ -22,21 +22,25 @@ func getValue(ctx *iris.Context) {
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
 	confKey := ctx.Param("key")
-	logrus.Infof("Get configuration: %s", confKey)
-	etcdCl, _ := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	logrus.Infof("Get value appName:%s, version:%s, key:%s", appName, appVersion, confKey)
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
 	defer etcdCl.Client.Close()
 
-	fullKey := appName + "." + appVersion + "." + confKey
-	resp, err := etcdCl.Client.Get(context.TODO(), fullKey, nil)
-	if err != nil {
-		if client.IsKeyNotFound(err) {
-			ctx.NotFound()
-		} else {
-			ctx.Panic()
-		}
-	} else {
-		ctx.Write(resp.Kvs[0].Value)
+	conf, err := configuration.Get(etcdCl, appName, appVersion)
+	if utils.HandleError(ctx, err) {
+		return
 	}
+	val, err := conf.GetValue(etcdCl, confKey)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	if val == nil {
+		ctx.NotFound()
+	}
+	ctx.Write(val)
 }
 
 func putValue(ctx *iris.Context) {
@@ -44,31 +48,43 @@ func putValue(ctx *iris.Context) {
 	appVersion := ctx.Param("version")
 	confKey := ctx.Param("key")
 	confValue := ctx.FormValue("value")
+	logrus.Infof("Put value appName:%s, version:%s, key:%s, value:%s", appName, appVersion, confKey, confValue)
 
-	// TODO check if the app and version exists
-
-	logrus.Infof("Get configuration: %s", confKey)
-	etcdCl, _ := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
 	defer etcdCl.Client.Close()
 
-	fullKey := appName + "." + appVersion + "." + confKey
-	if _, err := etcdCl.Client.Put(context.TODO(), fullKey, confValue); err != nil {
-		logrus.Errorf("error adding/updating key:%s error:%s", fullKey, err.Error())
-		ctx.EmitError(iris.StatusInternalServerError)
+	conf, err := configuration.Get(etcdCl, appName, appVersion)
+	if utils.HandleError(ctx, err) {
+		return
 	}
+	err = conf.PutValue(etcdCl, confKey, confValue)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	ctx.SetStatusCode(iris.StatusNoContent);
 }
 
 func deleteValue(ctx *iris.Context) {
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
 	confKey := ctx.Param("key")
-	logrus.Infof("Get configuration: %s", confKey)
-	etcdCl, _ := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	logrus.Infof("Delete value appName:%s, version:%s, key:%s", appName, appVersion, confKey)
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
 	defer etcdCl.Client.Close()
 
-	fullKey := appName + "." + appVersion + "." + confKey
-	if _, err := etcdCl.Client.Delete(context.TODO(), fullKey); err != nil {
-		logrus.Errorf("error deleting key:%s error:%s", fullKey, err.Error())
-		ctx.EmitError(iris.StatusInternalServerError)
+	conf, err := configuration.Get(etcdCl, appName, appVersion)
+	if utils.HandleError(ctx, err) {
+		return
 	}
+	err = conf.DeleteValue(etcdCl, confKey)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	ctx.SetStatusCode(iris.StatusNoContent);
 }

@@ -53,7 +53,7 @@ func TestRenameApplication(t *testing.T) {
 	apps := GetListApplications(t)
 	appFound := false
 	for _, app := range apps {
-		if app["Name"] == "newName" {
+		if app["name"] == "newName" {
 			appFound = true
 		}
 	}
@@ -147,10 +147,10 @@ func TestListApplications(t *testing.T) {
 	app1Found := false;
 	app2Found := false
 	for _, app := range apps {
-		if app["Name"] == "app1" {
+		if app["name"] == "app1" {
 			app1Found = true
 		}
-		if app["Name"] == "app2" {
+		if app["name"] == "app2" {
 			app2Found = true
 		}
 	}

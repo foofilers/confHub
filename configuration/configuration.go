@@ -72,3 +72,32 @@ func (version *Configuration) Delete(etcdCl *etcd.EtcdClient) error {
 	_, err = etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit()
 	return err
 }
+
+func (version *Configuration) GetValue(etcdCl *etcd.EtcdClient, key string) ([]byte, error) {
+	fullKey := version.Application.Name + "." + version.Version + "." + key
+	resp, err := etcdCl.Client.Get(context.TODO(), fullKey)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Count == 0 {
+		return nil, nil
+	}
+	return resp.Kvs[0].Value, nil
+}
+
+func (version *Configuration) DeleteValue(etcdCl *etcd.EtcdClient, key string) error {
+	fullKey := version.Application.Name + "." + version.Version + "." + key
+	if _, err := etcdCl.Client.Delete(context.TODO(), fullKey); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (version *Configuration) PutValue(etcdCl *etcd.EtcdClient, key, value string) error {
+	fullKey := version.Application.Name + "." + version.Version + "." + key
+	if _, err := etcdCl.Client.Put(context.TODO(), fullKey, value); err != nil {
+		return err
+	}
+	return nil
+}
+
