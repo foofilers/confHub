@@ -28,10 +28,10 @@ func HandleEtcdErrorMsg(ctx *iris.Context, err error, format string, values ...i
 	case rpctypes.ErrDuplicateKey:
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusConflict)
-	case application.AppAlreadyExistError:
+	case application.AppAlreadyExistError,application.VersionAlreadyExistError:
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusConflict)
-	case application.AppNotFoundError, rpctypes.ErrUserNotFound:
+	case application.AppNotFoundError, rpctypes.ErrUserNotFound,application.VersionNotFound,application.CurrentVersionNotSetted:
 		logrus.Warnf(format, values...)
 		ctx.EmitError(iris.StatusNotFound)
 	default:

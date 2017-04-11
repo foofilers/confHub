@@ -92,15 +92,9 @@ func TestRenameNotPresentApplication(t *testing.T) {
 }
 
 func TestDeleteApplication(t *testing.T) {
-	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).SetFormData(map[string]string{
-		"name": "toDelApp",
-	}).Post(ServerUrl + "/api/apps")
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkHttpStatus(t, resp, 201)
+	CreateApp(t,"toDelApp")
 
-	resp, err = resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Delete(ServerUrl + "/api/apps/toDelApp")
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Delete(ServerUrl + "/api/apps/toDelApp")
 	if err != nil {
 		t.Fatal(err)
 	}

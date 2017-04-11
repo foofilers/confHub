@@ -12,8 +12,9 @@ import (
 const CONFHUB_APPLICATIONS_PREFIX = "confHub.applications."
 
 type App struct {
-	Name      string `json:"name"`
-	CreatedAt time.Time`json:"createdAt"`
+	Name           string `json:"name"`
+	CurrentVersion string `json:"currentVersion"`
+	CreatedAt      time.Time`json:"createdAt"`
 }
 
 func Exists(etcdCl*etcd.EtcdClient, name string) (bool, error) {
@@ -26,6 +27,14 @@ func Exists(etcdCl*etcd.EtcdClient, name string) (bool, error) {
 }
 
 func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
+	exist, err := Exists(etcdCl, name)
+	if err != nil {
+		return nil, err
+	}
+	if !exist {
+		return nil, AppNotFoundError.Details(name)
+	}
+
 	key := name + "._created"
 	getResp, err := etcdCl.Client.Get(context.TODO(), key)
 	if err != nil {
@@ -42,12 +51,16 @@ func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
 		logrus.Error(err)
 		return nil, err
 	}
+	app.CurrentVersion, err = GetCurrentAppVersion(etcdCl, name)
+	if err != nil && err != CurrentVersionNotSetted {
+		return nil, err
+	}
 	return app, nil
 }
 
 func ListNames(etcdCl *etcd.EtcdClient) ([]string, error) {
 	logrus.Info("Getting application list")
-	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly(),clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
+	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	appNames := make([]string, 0)
 	if err != nil {
 		logrus.Error(err)
@@ -215,15 +228,27 @@ func (app *App) Delete(etcdCl *etcd.EtcdClient) error {
 	if err != nil {
 		return err
 	}
-	ops := make([]clientv3.Op, len(appConf) + 1, len(appConf) + 1)
-	i := 0
+
+	appVersions, err := app.GetVersions(etcdCl)
+	if err != nil {
+		return err
+	}
+
+	//delete keys
+	ops := make([]clientv3.Op, 0)
 	for k := range appConf {
 		sourceKey := app.Name + "." + k
 		logrus.Debugf("deleting %s", sourceKey)
-		ops[i] = clientv3.OpDelete(sourceKey)
-		i ++
+		ops = append(ops, clientv3.OpDelete(sourceKey))
 	}
-	ops[i] = clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name)
+
+	//delete app from app list
+	ops = append(ops, clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name))
+
+	//delete versions
+	for appVer := range appVersions {
+		ops = append(ops, clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name + ".version." + appVer))
+	}
 
 	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		logrus.Errorf("error deleting application %s:%s", app.Name, err)

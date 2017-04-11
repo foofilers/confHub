@@ -6,7 +6,7 @@ import (
 	"github.com/foofilers/confHub/etcd"
 	"github.com/foofilers/confHub/auth"
 	"github.com/foofilers/confHub/api/utils"
-	"github.com/foofilers/confHub/configuration"
+	"github.com/foofilers/confHub/application"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
@@ -29,7 +29,12 @@ func getValue(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	conf, err := configuration.Get(etcdCl, appName, appVersion)
+	app,err:=application.Get(etcdCl,appName)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	conf, err := app.GetConfigurationVersion(etcdCl, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -56,7 +61,12 @@ func putValue(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	conf, err := configuration.Get(etcdCl, appName, appVersion)
+	app,err:=application.Get(etcdCl,appName)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	conf, err := app.GetConfigurationVersion(etcdCl, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -78,7 +88,12 @@ func deleteValue(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	conf, err := configuration.Get(etcdCl, appName, appVersion)
+	app,err:=application.Get(etcdCl,appName)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	conf, err := app.GetConfigurationVersion(etcdCl, appVersion);
 	if utils.HandleError(ctx, err) {
 		return
 	}

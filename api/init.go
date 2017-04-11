@@ -12,6 +12,7 @@ import (
 	"github.com/foofilers/confHub/api/apps"
 	"github.com/foofilers/confHub/api/values"
 	"github.com/foofilers/confHub/api/configs"
+	"github.com/foofilers/confHub/api/versions"
 )
 
 var jwtMiddleware *jwtmiddleware.Middleware
@@ -46,4 +47,5 @@ func InitApi(router *iris.Router) {
 	values.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
 	apps.InitAPI(router, jwtMiddleware.Serve, loggedUserMiddleware)
 	configs.InitAPI(router,jwtMiddleware.Serve,loggedUserMiddleware)
+	versions.InitAPI(router,jwtMiddleware.Serve,loggedUserMiddleware)
 }

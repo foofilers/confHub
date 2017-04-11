@@ -11,7 +11,7 @@ func SetValue(t *testing.T, app, version, key, value string) {
 		"value": value,
 	}).Put(ServerUrl + "/api/values/" + app + "/" + version + "/" + key)
 	if err != nil {
-		t.Fatal("setting value",err)
+		t.Fatal("setting value", err)
 	}
 	checkHttpStatus(t, resp, iris.StatusNoContent)
 }
@@ -19,7 +19,7 @@ func SetValue(t *testing.T, app, version, key, value string) {
 func GetValue(t *testing.T, app, version, key string, expStatus int) []byte {
 	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Get(ServerUrl + "/api/values/" + app + "/" + version + "/" + key)
 	if err != nil {
-		t.Fatal("getting value",err)
+		t.Fatal("getting value", err)
 	}
 	checkHttpStatus(t, resp, expStatus)
 	return resp.Body()
@@ -28,7 +28,7 @@ func GetValue(t *testing.T, app, version, key string, expStatus int) []byte {
 func DeleteValue(t *testing.T, app, version, key string) {
 	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Delete(ServerUrl + "/api/values/" + app + "/" + version + "/" + key)
 	if err != nil {
-		t.Fatal("deleting value",err)
+		t.Fatal("deleting value", err)
 	}
 	checkHttpStatus(t, resp, iris.StatusNoContent)
 }
@@ -37,12 +37,13 @@ func TestSetGetDeleteValue(t *testing.T) {
 	appName := "valueApp1"
 	version := "1.0.0"
 	CreateApp(t, appName)
+	CreateVersion(t, appName, version)
 	SetValue(t, appName, version, "prop1", "val1")
-	prop1Value := string(GetValue(t, appName, version, "prop1",iris.StatusOK))
+	prop1Value := string(GetValue(t, appName, version, "prop1", iris.StatusOK))
 	if prop1Value != "val1" {
 		t.Fatalf("the value [%s] doesn't match with [val1]", prop1Value)
 	}
 	DeleteValue(t, appName, version, "prop1")
 
-	GetValue(t, appName, version, "prop1",iris.StatusNotFound)
+	GetValue(t, appName, version, "prop1", iris.StatusNotFound)
 }
