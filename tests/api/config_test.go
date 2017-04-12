@@ -32,11 +32,12 @@ func PutConfig(t *testing.T, appName, appVersion string, configs map[string]stri
 }
 
 
+
 func TestGetConfig(t *testing.T) {
 	appName := "ConfigApp1"
 	appVersion := "1.0.0"
 	CreateApp(t, appName)
-	CreateVersion(t,appName,appVersion)
+	CreateVersion(t, appName, appVersion)
 	config := map[string]string{
 		"prop1":"val1",
 		"prop2":"val2",

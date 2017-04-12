@@ -15,6 +15,7 @@ func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 	configParty.Post("/:app", addVersion)
 	configParty.Get("/:app", getVersions)
 	configParty.Put("/:app/:version", setDefaultVersion)
+	configParty.Put("/:app/:version/copy", copyVersion)
 	configParty.Delete("/:app/:version", deleteVersion)
 	return configParty
 }
@@ -37,6 +38,46 @@ func addVersion(ctx *iris.Context) {
 		return
 	}
 	ctx.SetStatusCode(iris.StatusCreated)
+}
+
+func copyVersion(ctx *iris.Context) {
+	if (utils.MandatoryFormParams(ctx, "version")) {
+		return
+	}
+	appName := ctx.Param("app")
+	srcVersion := ctx.Param("version")
+	destVersion := ctx.FormValue("version")
+	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	app, err := application.Get(etcdCl, appName)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	cnf, err := app.GetConfigurationVersion(etcdCl, srcVersion)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	currCnf, err := cnf.GetConfig(etcdCl)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	if utils.HandleError(ctx, app.CreateVersion(etcdCl, destVersion)) {
+		return
+	}
+	destCnf, err := app.GetConfigurationVersion(etcdCl, destVersion)
+	if utils.HandleError(ctx, err) {
+		return
+	}
+
+	if utils.HandleError(ctx, destCnf.SetConfig(etcdCl, currCnf)) {
+		return
+	}
+
+	ctx.SetStatusCode(iris.StatusOK)
 }
 
 func getVersions(ctx *iris.Context) {

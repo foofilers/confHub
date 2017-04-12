@@ -7,6 +7,7 @@ import (
 	"github.com/foofilers/confHub/auth"
 	"github.com/foofilers/confHub/api/utils"
 	"github.com/foofilers/confHub/application"
+	"github.com/foofilers/confHub/confWriters"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
@@ -21,15 +22,16 @@ func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
 func getConfig(ctx *iris.Context) {
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
+	format := ctx.URLParam("format")
 
-	logrus.Infof("Get configuration for app: %s version:%s", appName, appVersion)
+	logrus.Infof("Get configuration for app: %s version:%s format:%s", appName, appVersion, format)
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
 	if utils.HandleError(ctx, err) {
 		return
 	}
 	defer etcdCl.Client.Close()
 
-	app,err:=application.Get(etcdCl,appName)
+	app, err := application.Get(etcdCl, appName)
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -42,7 +44,33 @@ func getConfig(ctx *iris.Context) {
 	if (utils.HandleError(ctx, err)) {
 		return
 	}
-	ctx.JSON(iris.StatusOK, cnf)
+
+	if len(format) == 0 {
+		ctx.JSON(iris.StatusOK, cnf)
+	} else {
+		var out string
+		var err error
+		switch format {
+		case "flatJson":
+			ctx.JSON(iris.StatusOK, cnf)
+		case "json":
+			out, err = confWriters.ConfToStructuredJson(cnf, true)
+		case "flatXml":
+			out, err = confWriters.ConfToXml(cnf, true)
+		case "xml":
+			out, err = confWriters.ConfToStructuredXml(cnf, true)
+		case "properties":
+			out, err = confWriters.ConfToProperties(cnf)
+		default:
+			ctx.Write([]byte("invalid format"))
+			ctx.SetStatusCode(iris.StatusPreconditionFailed)
+			return
+		}
+		if (utils.HandleError(ctx, err)) {
+			return
+		}
+		ctx.Write([]byte(out))
+	}
 }
 
 func putConfig(ctx *iris.Context) {
@@ -62,7 +90,7 @@ func putConfig(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	app,err:=application.Get(etcdCl,appName)
+	app, err := application.Get(etcdCl, appName)
 	if utils.HandleError(ctx, err) {
 		return
 	}

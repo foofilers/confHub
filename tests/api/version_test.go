@@ -4,6 +4,8 @@ import (
 	"testing"
 	"gopkg.in/resty.v0"
 	"encoding/json"
+	"reflect"
+	"gopkg.in/kataras/iris.v6"
 )
 
 func CreateVersion(t *testing.T, appName, appVersion string) {
@@ -22,6 +24,16 @@ func SetDefaultVersion(t *testing.T, appName, appVersion string) {
 		t.Fatal(err)
 	}
 	checkHttpStatus(t, resp, 204)
+}
+
+func CopyVersion(t *testing.T, appName, srcVersion, dstVersion string, expStatus int) {
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).SetFormData(map[string]string{
+		"version":dstVersion,
+	}).Put(ServerUrl + "/api/versions/" + appName + "/" + srcVersion + "/copy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkHttpStatus(t, resp, expStatus)
 }
 
 func GetVersion(t *testing.T, appName string, expStatus int) map[string]bool {
@@ -50,7 +62,7 @@ func DeleteVersion(t *testing.T, appName, appVersion string) {
 }
 
 func TestAIOVersion(t *testing.T) {
-	appName := "verApp1"
+	appName := RandString(8)
 	CreateApp(t, appName)
 	CreateVersion(t, appName, "1.0.0")
 	if _, found := GetVersion(t, appName, 200)["1.0.0"]; !found {
@@ -63,7 +75,7 @@ func TestAIOVersion(t *testing.T) {
 }
 
 func TestSetDefaultVersion(t *testing.T) {
-	appName := "currverapp1"
+	appName :=RandString(8)
 	const ver1 = "1.0.0"
 	const ver2 = "2.0.0"
 	const prop1V1Value = "val1"
@@ -88,4 +100,44 @@ func TestSetDefaultVersion(t *testing.T) {
 
 }
 
+func TestCopyVersion(t *testing.T) {
+	appName := RandString(8)
+	srcVer := "1.0.0"
+	dstVer := "2.0.0"
+	CreateApp(t, appName)
+	CreateVersion(t, appName, srcVer)
+	config := map[string]string{
+		"prop1":"val1",
+		"prop2":"val2",
+	}
+	PutConfig(t, appName, srcVer, config)
+	CopyVersion(t, appName, srcVer, dstVer, iris.StatusOK)
+
+	getConfig := GetConfig(t, appName, dstVer)
+	if !reflect.DeepEqual(config, getConfig) {
+		t.Fatalf("map %+v are not equals to %+v", config, getConfig)
+	}
+}
+
+func TestCopyVersionAlreadyExist(t *testing.T) {
+	appName := RandString(8)
+	srcVer := "1.0.0"
+	dstVer := "2.0.0"
+	CreateApp(t, appName)
+	CreateVersion(t, appName, srcVer)
+	config := map[string]string{
+		"prop1":"val1",
+		"prop2":"val2",
+	}
+	PutConfig(t, appName, srcVer, config)
+	CopyVersion(t, appName, srcVer, dstVer, iris.StatusOK)
+	CopyVersion(t, appName, dstVer, srcVer, iris.StatusConflict)
+}
+
+func TestCopyVersionSrcNotFound(t *testing.T) {
+	appName := RandString(8)
+	srcVer := "1.0.0"
+	CreateApp(t, appName)
+	CopyVersion(t, appName, srcVer, "2.0.0", iris.StatusNotFound)
+}
 

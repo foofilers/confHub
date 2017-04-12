@@ -108,7 +108,7 @@ func TestDeleteApplication(t *testing.T) {
 		}
 	}
 	if appFound {
-		t.Fatalf("apps should not exist")
+		t.Fatal("apps should not exist")
 	}
 }
 

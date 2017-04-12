@@ -8,6 +8,9 @@ import (
 	"github.com/foofilers/confHub/server"
 	"gopkg.in/resty.v0"
 	"testing"
+	"time"
+	"math/rand"
+	"net/url"
 )
 
 var testcnf = `
@@ -16,7 +19,7 @@ jwtSecretKey: asdikasjdiowquaswdas9802uejbdsyu
 pwdSecretKey: asdfhw21398712nw21ui873w121312kj
 etcd:
   servers:
-    - http://127.0.0.1:2379
+    - http://127.0.0.1:9091
   password: testRoot
 `
 
@@ -26,8 +29,13 @@ var ServerUrl = "http://127.0.0.1:9090"
 
 func startServer() {
 	var err error
+	etcdListUrl, _ := url.Parse("http://localhost:9091")
+	etcdListUrl2, _ := url.Parse("http://localhost:9092")
 	cfg := embed.NewConfig();
 	cfg.Dir = etcdTmpDir
+	cfg.LPUrls=[]url.URL{*etcdListUrl2}
+	cfg.ACUrls = []url.URL{*etcdListUrl}
+	cfg.LCUrls = []url.URL{*etcdListUrl}
 	_, err = embed.StartEtcd(cfg)
 	if err != nil {
 		logrus.Fatal(err)
@@ -37,6 +45,7 @@ func startServer() {
 }
 
 func TestMain(m *testing.M) {
+	rand.Seed(time.Now().UnixNano())
 	startServer()
 	resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(20))
 	m.Run()
@@ -52,4 +61,14 @@ func checkHttpStatus(t *testing.T, resp *resty.Response, expected int) {
 	if resp.StatusCode() != expected {
 		t.Fatalf("status code should be %d but was %d", expected, resp.StatusCode())
 	}
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func RandString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
