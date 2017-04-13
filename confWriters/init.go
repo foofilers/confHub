@@ -2,7 +2,6 @@ package confWriters
 
 import (
 	"strings"
-	"github.com/Sirupsen/logrus"
 	"reflect"
 )
 
@@ -13,7 +12,6 @@ func mapToStructMap(conf map[string]string, prefix string) (map[string]interface
 	for k, v := range conf {
 		if len(prefix) == 0 || strings.HasPrefix(k, prefix) {
 			key := strings.Replace(k, prefix, "", 1)
-			logrus.Debug(key)
 			if !strings.Contains(key, ".") {
 				if _, alreadyPresent := res[key]; alreadyPresent {
 					return nil, InvalidConfigurationStructure.Details("Duplicated key:" + key)

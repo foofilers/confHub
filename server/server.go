@@ -11,6 +11,7 @@ import (
 	"github.com/foofilers/confHub/api"
 	"github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
+	"github.com/foofilers/confHub/ws"
 )
 
 var app *iris.Framework
@@ -36,12 +37,16 @@ func StartAsync(addr string, async bool) {
 		Debug:false,
 	}))
 	app.Adapt(view.HTML("./public", ".html"))
+	ws.InitWs(app)
+
+
 
 	app.Get("/", func(ctx *iris.Context) {
 		ctx.MustRender("index.html", nil)
 	})
 
 	api.InitApi(app.Party("/api"))
+
 	if (async) {
 		go app.Listen(addr)
 	} else {

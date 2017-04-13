@@ -19,7 +19,7 @@ func (app *App) GetConfigurationVersion(etcdCl *etcd.EtcdClient, version string)
 	var err error
 	if len(version) == 0 {
 		//use default version
-		version, err = app.GetCurrentappVersion(etcdCl)
+		version, err = app.GetCurrentAppVersion(etcdCl)
 		if err != nil {
 			return nil, err
 		}

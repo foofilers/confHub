@@ -67,7 +67,7 @@ func (app *App) DeleteVersion(etcdCl *etcd.EtcdClient, version string) error {
 }
 
 func GetCurrentAppVersion(etcdCl *etcd.EtcdClient, appName string) (string, error) {
-	currVerResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX + appName + ".currentVersion")
+	currVerResp, err := etcdCl.Client.Get(context.TODO(),  appName + "._currentVersion")
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +77,7 @@ func GetCurrentAppVersion(etcdCl *etcd.EtcdClient, appName string) (string, erro
 	return string(currVerResp.Kvs[0].Value), nil
 }
 
-func (app *App) GetCurrentappVersion(etcdCl *etcd.EtcdClient) (string, error) {
+func (app *App) GetCurrentAppVersion(etcdCl *etcd.EtcdClient) (string, error) {
 	return GetCurrentAppVersion(etcdCl, app.Name)
 }
 
@@ -89,7 +89,7 @@ func (app *App) SetDefaultVersion(etcdCl *etcd.EtcdClient, version string) error
 	if !verExist {
 		return VersionNotFound.Details(version, app.Name)
 	}
-	if _, err := etcdCl.Client.Put(context.TODO(), CONFHUB_APPLICATIONS_PREFIX + app.Name + ".currentVersion", version); err != nil {
+	if _, err := etcdCl.Client.Put(context.TODO(),  app.Name + "._currentVersion", version); err != nil {
 		return err
 	}
 	return nil
