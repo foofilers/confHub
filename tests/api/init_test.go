@@ -4,13 +4,14 @@ import (
 	"github.com/coreos/etcd/embed"
 	"github.com/Sirupsen/logrus"
 	"os"
-	"github.com/foofilers/confHub/conf"
 	"github.com/foofilers/confHub/server"
 	"gopkg.in/resty.v0"
 	"testing"
 	"time"
 	"math/rand"
 	"net/url"
+	"github.com/spf13/viper"
+	"bytes"
 )
 
 var testcnf = `
@@ -33,14 +34,17 @@ func startServer() {
 	etcdListUrl2, _ := url.Parse("http://localhost:9092")
 	cfg := embed.NewConfig();
 	cfg.Dir = etcdTmpDir
-	cfg.LPUrls=[]url.URL{*etcdListUrl2}
+	cfg.LPUrls = []url.URL{*etcdListUrl2}
 	cfg.ACUrls = []url.URL{*etcdListUrl}
 	cfg.LCUrls = []url.URL{*etcdListUrl}
 	_, err = embed.StartEtcd(cfg)
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	conf.InitConf(testcnf)
+	viper.SetConfigType("yaml")
+	if err := viper.ReadConfig(bytes.NewReader([]byte(testcnf))); err != nil {
+		logrus.Fatal(err)
+	}
 	server.StartAsync("127.0.0.1:9090", true)
 }
 

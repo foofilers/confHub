@@ -61,6 +61,8 @@ func getConfig(ctx *iris.Context) {
 			out, err = confWriters.ConfToStructuredXml(cnf, true)
 		case "properties":
 			out, err = confWriters.ConfToProperties(cnf)
+		case "yaml":
+			out, err = confWriters.ConfToYaml(cnf)
 		default:
 			ctx.Write([]byte("invalid format"))
 			ctx.SetStatusCode(iris.StatusPreconditionFailed)

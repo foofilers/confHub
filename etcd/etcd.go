@@ -19,7 +19,6 @@ type EtcdClient struct {
 
 func New(username, password string) (*EtcdClient, error) {
 	servers := cnf.GetStringSlice("etcd.servers")
-	log.Infof("New Etcd Client userId:%v, password:%v servers:%+v", username, password, servers)
 	tlsCfg := transport.TLSInfo{
 		ClientCertAuth:true,
 	}

@@ -44,8 +44,6 @@ func (cmd *GenericWsCommand) Exec(data []byte, conn websocket.Connection) {
 	command.Exec(data, conn)
 }
 
-
-
 func (cmd *WatchCommand) Exec(data []byte, conn websocket.Connection) {
 	logrus.Debugf("WatchCommand Exec %+v", cmd)
 	for _, app := range cmd.Data.Applications {
