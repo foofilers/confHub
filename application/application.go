@@ -69,8 +69,10 @@ func ListNames(etcdCl *etcd.EtcdClient) ([]string, error) {
 
 	for _, k := range getResp.Kvs {
 		appName := strings.Replace(string(k.Key), CONFHUB_APPLICATIONS_PREFIX, "", 1)
-		logrus.Debugf("Found app %s", appName)
-		appNames = append(appNames, appName)
+		if !strings.Contains(appName,".") {
+			logrus.Debugf("Found app %s", appName)
+			appNames = append(appNames, appName)
+		}
 	}
 	return appNames, nil
 }

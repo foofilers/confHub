@@ -7,6 +7,7 @@ import (
 	"github.com/foofilers/confHub/etcd"
 	"github.com/foofilers/confHub/auth"
 	"github.com/foofilers/confHub/application"
+	"github.com/foofilers/confHub/models"
 )
 
 func InitAPI(router *iris.Router, handlersFn ...iris.HandlerFunc) *iris.Router {
@@ -94,9 +95,16 @@ func getVersions(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	res := make([]string, 0)
+	res := &models.ApplicationVersion{}
+	res.Versions = make([]string, len(versions), len(versions))
+	i := 0
 	for v := range versions {
-		res = append(res, v)
+		res.Versions[i] = v
+		i++
+	}
+	res.DefaultVersion, err = app.GetCurrentAppVersion(etcdCl)
+	if err != application.CurrentVersionNotSetted && utils.HandleError(ctx, err) {
+		return
 	}
 	ctx.JSON(iris.StatusOK, res)
 }

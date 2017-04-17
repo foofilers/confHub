@@ -29,7 +29,7 @@ func getValue(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	app,err:=application.Get(etcdCl,appName)
+	app, err := application.Get(etcdCl, appName)
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -49,11 +49,16 @@ func getValue(ctx *iris.Context) {
 }
 
 func putValue(ctx *iris.Context) {
+	if utils.MandatoryFormParams(ctx, "value") {
+		return
+	}
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
 	confKey := ctx.Param("key")
 	confValue := ctx.FormValue("value")
-	logrus.Infof("Put value appName:%s, version:%s, key:%s, value:%s", appName, appVersion, confKey, confValue)
+	newKey := ctx.FormValue("key")
+
+	logrus.Infof("Put value appName:%s, version:%s, key:%s,newKey:%s, value:%s", appName, appVersion, confKey,newKey, confValue)
 
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
 	if utils.HandleError(ctx, err) {
@@ -61,7 +66,7 @@ func putValue(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	app,err:=application.Get(etcdCl,appName)
+	app, err := application.Get(etcdCl, appName)
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -70,10 +75,16 @@ func putValue(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	err = conf.PutValue(etcdCl, confKey, confValue)
+	if len(newKey)>0 && newKey != confKey {
+		//rename
+		err = conf.RenameAndSetValue(etcdCl,confKey,newKey,confValue);
+	} else {
+		err = conf.PutValue(etcdCl, confKey, confValue)
+	}
 	if utils.HandleError(ctx, err) {
 		return
 	}
+
 	ctx.SetStatusCode(iris.StatusNoContent);
 }
 
@@ -88,7 +99,7 @@ func deleteValue(ctx *iris.Context) {
 	}
 	defer etcdCl.Client.Close()
 
-	app,err:=application.Get(etcdCl,appName)
+	app, err := application.Get(etcdCl, appName)
 	if utils.HandleError(ctx, err) {
 		return
 	}

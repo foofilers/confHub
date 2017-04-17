@@ -32,6 +32,15 @@ definitions:
         type: array
         items:
           type: string
+  ApplicationVersion:
+    type: object
+    properties:
+      versions:
+        type: array
+        items:
+          type: string
+      defaultVersion:
+        type: string
 
 
 
@@ -296,6 +305,20 @@ paths:
               type: array
               items:
                 type: string
+  /versions/app:
+    get:
+      tags:
+        - Versions
+      summary: Retrieve the application versions
+      responses:
+         401:
+            description: not authenticated
+         403:
+            description: not authorized
+         200:
+            description: application versions
+            schema:
+              $ref: '#/definitions/ApplicationVersion'
   /users:
     post:
       tags:

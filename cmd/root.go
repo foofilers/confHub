@@ -31,6 +31,7 @@ var RootCmd = &cobra.Command{
 	Use:   "confHub",
 	Short: "Configuration Hub Daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		initLog(cmd)
 		listen := cmd.Flag("listen").Value.String()
 		if len(listen) == 0 {
 			listen = viper.GetString("listen")
@@ -45,7 +46,7 @@ var RootCmd = &cobra.Command{
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	initLog(RootCmd)
+
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)

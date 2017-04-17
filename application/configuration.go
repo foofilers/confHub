@@ -12,7 +12,6 @@ type Configuration struct {
 	Version     string
 }
 
-
 func (version *Configuration) GetConfig(etcdCl *etcd.EtcdClient) (map[string]string, error) {
 	return etcdCl.GetWithPrefix(version.Application.Name + "." + version.Version)
 }
@@ -42,8 +41,6 @@ func (version *Configuration) SetConfig(etcdCl *etcd.EtcdClient, newConf map[str
 	return err
 }
 
-
-
 func (version *Configuration) GetValue(etcdCl *etcd.EtcdClient, key string) ([]byte, error) {
 	fullKey := version.Application.Name + "." + version.Version + "." + key
 	resp, err := etcdCl.Client.Get(context.TODO(), fullKey)
@@ -62,6 +59,14 @@ func (version *Configuration) DeleteValue(etcdCl *etcd.EtcdClient, key string) e
 		return err
 	}
 	return nil
+}
+
+func (version *Configuration) RenameAndSetValue(etcdCl *etcd.EtcdClient, key, newKey, value string) error {
+	delKey := version.Application.Name + "." + version.Version + "." + key
+	fullKey := version.Application.Name + "." + version.Version + "." + newKey
+	logrus.Debugf("RenameAndSetConfig from %s -> %s  value:%s",delKey,fullKey,value)
+	_, err := etcdCl.Client.Txn(context.TODO()).Then(clientv3.OpDelete(delKey), clientv3.OpPut(fullKey, value)).Commit()
+	return err;
 }
 
 func (version *Configuration) PutValue(etcdCl *etcd.EtcdClient, key, value string) error {
