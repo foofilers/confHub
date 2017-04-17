@@ -10,7 +10,7 @@ import (
 
 func (app *App) GetVersions(etcdCl *etcd.EtcdClient) (map[string]bool, error) {
 	versPrefix := CONFHUB_APPLICATIONS_PREFIX + app.Name + ".version."
-	versResp, err := etcdCl.Client.Get(context.TODO(), versPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+	versResp, err := etcdCl.Client.Get(context.TODO(), versPrefix, clientv3.WithPrefix(), clientv3.WithKeysOnly(),clientv3.WithSort(clientv3.SortByKey, clientv3.SortDescend))
 	if err != nil {
 		return nil, err
 	}
