@@ -23,6 +23,7 @@ func getConfig(ctx *iris.Context) {
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
 	format := ctx.URLParam("format")
+	followReference := ctx.URLParam("reference")
 
 	logrus.Infof("Get configuration for app: %s version:%s format:%s", appName, appVersion, format)
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
@@ -40,7 +41,12 @@ func getConfig(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	cnf, err := appConf.GetConfig(etcdCl)
+	var cnf map[string]string
+	if followReference == "false" {
+		cnf, err = appConf.GetConfig(etcdCl)
+	} else {
+		cnf, err = appConf.GetConfigFollowingReferences(etcdCl)
+	}
 	if (utils.HandleError(ctx, err)) {
 		return
 	}
@@ -83,7 +89,7 @@ func putConfig(ctx *iris.Context) {
 	appVersion := ctx.Param("version")
 	logrus.Infof("Put Configuration for app [%s] version:[%s]", appName, appVersion)
 	appConfigs := make(map[string]string)
-	if err := ctx.ReadJSON(&appConfigs); utils.HandleEtcdErrorMsg(ctx, err, " putConfig: Parsing JSON body") {
+	if err := ctx.ReadJSON(&appConfigs); utils.HandleErrorMsg(ctx, err, " putConfig: Parsing JSON body") {
 		return
 	}
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))

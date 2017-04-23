@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"github.com/spf13/viper"
 	"bytes"
+	"github.com/foofilers/confHub/utils"
 )
 
 var testcnf = `
@@ -37,6 +38,7 @@ func startServer() {
 	cfg.LPUrls = []url.URL{*etcdListUrl2}
 	cfg.ACUrls = []url.URL{*etcdListUrl}
 	cfg.LCUrls = []url.URL{*etcdListUrl}
+	logrus.SetLevel(logrus.InfoLevel)
 	_, err = embed.StartEtcd(cfg)
 	if err != nil {
 		logrus.Fatal(err)
@@ -51,6 +53,7 @@ func startServer() {
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
 	startServer()
+	time.Sleep(2*time.Second)
 	resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(20))
 	m.Run()
 	stopServer()
@@ -61,9 +64,11 @@ func stopServer() {
 	os.RemoveAll(etcdTmpDir)
 }
 
-func checkHttpStatus(t *testing.T, resp *resty.Response, expected int) {
+
+
+func checkHttpStatus(t *testing.T,  resp *resty.Response, expected int) {
 	if resp.StatusCode() != expected {
-		t.Fatalf("status code should be %d but was %d", expected, resp.StatusCode())
+		t.Fatalf("%s: status code should be %d but was %d", utils.MyCaller(), expected, resp.StatusCode())
 	}
 }
 

@@ -2,6 +2,7 @@ version: 0.0.1b
 jwtSecretKey: asdikasjdiowquaswdas9802uejbdsyu
 pwdSecretKey: asdfhw21398712nw21ui873w121312kj
 listen: 0.0.0.0:8080
+maxReference: 10
 etcd:
   servers:
     - http://127.0.0.1:2379

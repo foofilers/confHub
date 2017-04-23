@@ -69,24 +69,26 @@ func updateUser(ctx *iris.Context) {
 	logrus.Debugf("updating user %s with data: %+v", username, userUpd)
 
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
-	if utils.HandleError(ctx, err) {
+	if utils.HandleErrorMsg(ctx, err, "updateUser:%s") {
 		return
 	}
 	defer etcdCl.Client.Close()
 	userResp, err := etcdCl.Client.UserGet(context.TODO(), username)
-	if utils.HandleError(ctx, err) {
+	if utils.HandleErrorMsg(ctx, err, "updateUser getting user:%s") {
 		return
 	}
 
 	if username != userUpd.Username {
 		//renaming
-		if utils.HandleError(ctx, createUser(etcdCl, userUpd)) {
+		if utils.HandleErrorMsg(ctx, createUser(etcdCl, userUpd), "updateUser renaming.create user:%s") {
 			return
 		}
-		etcdCl.Client.UserDelete(context.TODO(), username)
+		if _, err := etcdCl.Client.UserDelete(context.TODO(), username); utils.HandleErrorMsg(ctx, err, "updateUser renaming.delete user:%s") {
+			return
+		}
 	} else {
 		if len(userUpd.Password) > 0 {
-			if _, err := etcdCl.Client.UserChangePassword(context.TODO(), username, userUpd.Password); utils.HandleError(ctx, err) {
+			if _, err := etcdCl.Client.UserChangePassword(context.TODO(), username, userUpd.Password); utils.HandleErrorMsg(ctx, err,"ERROR:updateUser changePwd user:%s") {
 				return
 			}
 		}
@@ -101,7 +103,7 @@ func updateUser(ctx *iris.Context) {
 			if _, ok := roleMap[currRole]; !ok {
 				//revoke role
 				logrus.Infof("Revoke role %s from user %s", currRole, username)
-				if _, err := etcdCl.Client.UserRevokeRole(context.TODO(), username, currRole); utils.HandleError(ctx, err) {
+				if _, err := etcdCl.Client.UserRevokeRole(context.TODO(), username, currRole); utils.HandleErrorMsg(ctx, err,"updateUser removing role user:%s") {
 					//TODO fatalError or warning??
 					return
 				}
@@ -112,7 +114,7 @@ func updateUser(ctx *iris.Context) {
 			if _, ok := currRoleMap[role]; !ok {
 				//add grant
 				logrus.Infof("Grant role %s from user %s", role, username)
-				if _, err := etcdCl.Client.UserGrantRole(context.TODO(), username, role); utils.HandleError(ctx, err) {
+				if _, err := etcdCl.Client.UserGrantRole(context.TODO(), username, role); utils.HandleErrorMsg(ctx, err,"updateUser adding role user:%s") {
 					//TODO fatalError or warning??
 					return
 				}
@@ -132,7 +134,7 @@ func listUsers(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	ctx.JSON(iris.StatusOK,usersResp.Users)
+	ctx.JSON(iris.StatusOK, usersResp.Users)
 }
 
 func deleteUser(ctx *iris.Context) {

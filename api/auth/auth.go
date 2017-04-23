@@ -10,9 +10,8 @@ import (
 	"encoding/base64"
 	"golang.org/x/net/context"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/foofilers/confHub/api/utils"
 )
-
-
 
 func InitAuth(router *iris.Router) {
 	logrus.Info("initializing /auth api resources")
@@ -25,18 +24,28 @@ func login(ctx *iris.Context) {
 	username := ctx.FormValue("username")
 	password := ctx.FormValue("password")
 
+	logrus.Debugf("[%s]:[%s]", username, password)
+
 	cypheredPwd, err := cryptoutil.AESEncrypt([]byte(password), []byte(cnf.GetString("pwdSecretKey")))
 	user := &auth.LoggedUser{Username:username, CryptedPassword:base64.StdEncoding.EncodeToString(cypheredPwd)}
 
 	etcdCl, err := etcd.New(username, password)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("Error during login", err)
 		ctx.EmitError(iris.StatusForbidden)
 		return
 	}
-	defer etcdCl.Client.Close()
+	etcdCl.Client.Close()
+
+	//need a rootClient to get user roles
+	rootCl, err := etcd.RootClient()
+	if utils.HandleError(ctx, err) {
+		return
+	}
+	defer rootCl.Client.Close();
+
 	// retrieve user information
-	userInfo, err := etcdCl.Client.UserGet(context.TODO(), username)
+	userInfo, err := rootCl.Client.UserGet(context.TODO(), username)
 	if err != nil {
 		logrus.Error(err)
 		ctx.EmitError(iris.StatusForbidden)

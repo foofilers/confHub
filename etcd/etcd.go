@@ -56,6 +56,11 @@ func LoggedClient(user auth.LoggedUser) (*EtcdClient, error) {
 	return New(user.Username, string(clearedPassword))
 }
 
+func RootClient() (*EtcdClient, error) {
+	return New("root", cnf.GetString("etcd.password"))
+
+}
+
 func (this *EtcdClient) GetWithPrefix(prefix string) (map[string]string, error) {
 	resp, err := this.Client.Get(context.TODO(), prefix, clientv3.WithPrefix())
 	if err != nil {
@@ -65,7 +70,7 @@ func (this *EtcdClient) GetWithPrefix(prefix string) (map[string]string, error) 
 	for _, kv := range resp.Kvs {
 		log.Debugf("%+v", kv)
 		fullKey := string(kv.Key)
-		confMap[strings.Replace(fullKey, prefix + ".", "", 1)] = string(kv.Value)
+		confMap[strings.Replace(fullKey, prefix + "/", "", 1)] = string(kv.Value)
 	}
 	return confMap, nil
 }

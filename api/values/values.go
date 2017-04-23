@@ -22,6 +22,7 @@ func getValue(ctx *iris.Context) {
 	appName := ctx.Param("app")
 	appVersion := ctx.Param("version")
 	confKey := ctx.Param("key")
+	followReference := ctx.URLParam("reference")
 	logrus.Infof("Get value appName:%s, version:%s, key:%s", appName, appVersion, confKey)
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
 	if utils.HandleError(ctx, err) {
@@ -30,22 +31,27 @@ func getValue(ctx *iris.Context) {
 	defer etcdCl.Client.Close()
 
 	app, err := application.Get(etcdCl, appName)
-	if utils.HandleError(ctx, err) {
+	if utils.HandleErrorMsg(ctx, err, "Error Getting Application %s: %s", appName) {
 		return
 	}
 
 	conf, err := app.GetConfigurationVersion(etcdCl, appVersion);
-	if utils.HandleError(ctx, err) {
+	if utils.HandleErrorMsg(ctx, err, "Error Getting Application Configuration %s/%s :%s", appName, appVersion) {
 		return
 	}
-	val, err := conf.GetValue(etcdCl, confKey)
-	if utils.HandleError(ctx, err) {
+
+	var val string
+	if followReference == "true" {
+		val, err = conf.GetValueFollowingReference(etcdCl, confKey)
+	} else {
+		val, err = conf.GetValue(etcdCl, confKey)
+	}
+
+	if utils.HandleErrorMsg(ctx, err, "Error Getting value:%s") {
 		return
 	}
-	if val == nil {
-		ctx.NotFound()
-	}
-	ctx.Write(val)
+
+	ctx.WriteString(val)
 }
 
 func putValue(ctx *iris.Context) {
@@ -58,7 +64,7 @@ func putValue(ctx *iris.Context) {
 	confValue := ctx.FormValue("value")
 	newKey := ctx.FormValue("key")
 
-	logrus.Infof("Put value appName:%s, version:%s, key:%s,newKey:%s, value:%s", appName, appVersion, confKey,newKey, confValue)
+	logrus.Infof("Put value appName:%s, version:%s, key:%s,newKey:%s, value:%s", appName, appVersion, confKey, newKey, confValue)
 
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
 	if utils.HandleError(ctx, err) {
@@ -75,9 +81,9 @@ func putValue(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	if len(newKey)>0 && newKey != confKey {
+	if len(newKey) > 0 && newKey != confKey {
 		//rename
-		err = conf.RenameAndSetValue(etcdCl,confKey,newKey,confValue);
+		err = conf.RenameAndSetValue(etcdCl, confKey, newKey, confValue);
 	} else {
 		err = conf.PutValue(etcdCl, confKey, confValue)
 	}

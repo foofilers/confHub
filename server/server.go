@@ -33,8 +33,6 @@ func StartAsync(addr string, async bool) {
 	app.Adapt(view.HTML("./public", ".html"))
 	ws.InitWs(app)
 
-
-
 	app.Get("/", func(ctx *iris.Context) {
 		ctx.MustRender("index.html", nil)
 	})

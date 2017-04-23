@@ -87,7 +87,7 @@ func updateApp(ctx *iris.Context) {
 		utils.HandleError(ctx, application.AppNotFoundError.Details(currentName))
 		return
 	}
-	err = app.Rename(etcdCl, newName)
+	err = app.Rename(newName)
 	if utils.HandleError(ctx, err) {
 		return
 	}

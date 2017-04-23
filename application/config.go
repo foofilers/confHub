@@ -2,6 +2,7 @@ package application
 
 import (
 	"github.com/foofilers/confHub/etcd"
+	"github.com/Sirupsen/logrus"
 )
 
 func (app *App) GetConfiguration(etcdCl *etcd.EtcdClient) (map[string]string, error) {
@@ -19,13 +20,14 @@ func (app *App) GetConfigurationVersion(etcdCl *etcd.EtcdClient, version string)
 	var err error
 	if len(version) == 0 {
 		//use default version
-		version, err = app.GetCurrentAppVersion(etcdCl)
+		version, err = app.GetCurrentVersion(etcdCl)
 		if err != nil {
+			logrus.Errorf("Error getting current application version for app %s:%s", app.Name, err)
 			return nil, err
 		}
 	}
 
-	verExist, err := app.ExistVersion(etcdCl, version)
+	verExist, err := app.ExistVersion(version)
 	if err != nil {
 		return nil, err
 	}
@@ -34,3 +36,4 @@ func (app *App) GetConfigurationVersion(etcdCl *etcd.EtcdClient, version string)
 	}
 	return &Configuration{app, version}, nil
 }
+

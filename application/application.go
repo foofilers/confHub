@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-const CONFHUB_APPLICATIONS_PREFIX = "confHub.applications."
+const CONFHUB_APPLICATION_NAMES_PREFIX = "confHub/applications/name/"
+const CONFHUB_APPLICATION_VERSIONS_PREFIX = "confHub/applications/version/"
 
 type App struct {
 	Name           string `json:"name"`
@@ -17,8 +18,14 @@ type App struct {
 	CreatedAt      time.Time`json:"createdAt"`
 }
 
-func Exists(etcdCl*etcd.EtcdClient, name string) (bool, error) {
-	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX + name, clientv3.WithCountOnly())
+func Exists(name string) (bool, error) {
+	etcdCl, err := etcd.RootClient()
+	if err != nil {
+		return false, err
+	}
+	defer etcdCl.Client.Close()
+
+	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATION_NAMES_PREFIX + name, clientv3.WithCountOnly())
 	if err != nil {
 		logrus.Error(err)
 		return false, err
@@ -27,7 +34,7 @@ func Exists(etcdCl*etcd.EtcdClient, name string) (bool, error) {
 }
 
 func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
-	exist, err := Exists(etcdCl, name)
+	exist, err := Exists(name)
 	if err != nil {
 		return nil, err
 	}
@@ -35,10 +42,10 @@ func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
 		return nil, AppNotFoundError.Details(name)
 	}
 
-	key := name + "._created"
+	key := name + "/_created"
 	getResp, err := etcdCl.Client.Get(context.TODO(), key)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Errorf("Error getting key:%s:%s", key, err)
 		return nil, err
 	}
 	if getResp.Count == 0 {
@@ -53,6 +60,7 @@ func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
 	}
 	app.CurrentVersion, err = GetCurrentAppVersion(etcdCl, name)
 	if err != nil && err != CurrentVersionNotSetted {
+		logrus.Errorf("Error getting currentVersion for %s application:%s", name, err)
 		return nil, err
 	}
 	return app, nil
@@ -60,7 +68,7 @@ func Get(etcdCl*etcd.EtcdClient, name string) (*App, error) {
 
 func ListNames(etcdCl *etcd.EtcdClient) ([]string, error) {
 	logrus.Info("Getting application list")
-	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATIONS_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
+	getResp, err := etcdCl.Client.Get(context.TODO(), CONFHUB_APPLICATION_NAMES_PREFIX, clientv3.WithPrefix(), clientv3.WithKeysOnly(), clientv3.WithSort(clientv3.SortByKey, clientv3.SortAscend))
 	appNames := make([]string, 0)
 	if err != nil {
 		logrus.Error(err)
@@ -68,11 +76,9 @@ func ListNames(etcdCl *etcd.EtcdClient) ([]string, error) {
 	}
 
 	for _, k := range getResp.Kvs {
-		appName := strings.Replace(string(k.Key), CONFHUB_APPLICATIONS_PREFIX, "", 1)
-		if !strings.Contains(appName,".") {
-			logrus.Debugf("Found app %s", appName)
-			appNames = append(appNames, appName)
-		}
+		appName := strings.Replace(string(k.Key), CONFHUB_APPLICATION_NAMES_PREFIX, "", 1)
+		logrus.Debugf("Found app %s", appName)
+		appNames = append(appNames, appName)
 	}
 	return appNames, nil
 }
@@ -97,7 +103,7 @@ func List(etcdCl *etcd.EtcdClient) ([]*App, error) {
 }
 
 func Create(etcdCl *etcd.EtcdClient, name string) (*App, error) {
-	exists, err := Exists(etcdCl, name)
+	exists, err := Exists(name)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +114,8 @@ func Create(etcdCl *etcd.EtcdClient, name string) (*App, error) {
 	ops := make([]clientv3.Op, 2, 2)
 
 	app := &App{Name:name, CreatedAt:time.Now()}
-	ops[0] = clientv3.OpPut(name + "._created", app.CreatedAt.Format(time.RFC3339))
-	ops[1] = clientv3.OpPut(CONFHUB_APPLICATIONS_PREFIX + name, "true")
+	ops[0] = clientv3.OpPut(name + "/_created", app.CreatedAt.Format(time.RFC3339))
+	ops[1] = clientv3.OpPut(CONFHUB_APPLICATION_NAMES_PREFIX + name, "true")
 
 	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		return nil, err
@@ -122,9 +128,16 @@ func Create(etcdCl *etcd.EtcdClient, name string) (*App, error) {
 	return app, nil
 }
 
-func (app *App) Rename(etcdCl *etcd.EtcdClient, newName string) error {
+func (app *App) Rename(newName string) error {
+
+	etcdCl, err := etcd.RootClient()
+	if err != nil {
+		return err
+	}
+	defer etcdCl.Client.Close()
+
 	logrus.Infof("renaming application %s to %s", app.Name, newName)
-	exists, err := Exists(etcdCl, newName)
+	exists, err := Exists(newName)
 	if err != nil {
 		return err
 	}
@@ -139,17 +152,17 @@ func (app *App) Rename(etcdCl *etcd.EtcdClient, newName string) error {
 	ops := make([]clientv3.Op, (len(appConf) * 2) + 2, (len(appConf) * 2) + 2)
 	i := 0
 	for k, v := range appConf {
-		destKey := newName + "." + k
-		sourceKey := app.Name + "." + k
+		destKey := newName + "/" + k
+		sourceKey := app.Name + "/" + k
 		logrus.Debugf("move %s to %s", sourceKey, destKey)
 		ops[i] = clientv3.OpPut(destKey, v)
 		ops[i + 1] = clientv3.OpDelete(sourceKey)
 		i += 2
 	}
 	//update applications list
-	ops[i] = clientv3.OpPut(CONFHUB_APPLICATIONS_PREFIX + newName, "true")
+	ops[i] = clientv3.OpPut(CONFHUB_APPLICATION_NAMES_PREFIX + newName, "true")
 	i++
-	ops[i] = clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name)
+	ops[i] = clientv3.OpDelete(CONFHUB_APPLICATION_NAMES_PREFIX + app.Name)
 
 	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {
 		return err
@@ -202,10 +215,10 @@ func createAppRoles(etcdCl *etcd.EtcdClient, appName string) error {
 		}
 	}
 	// associate roles to permission
-	if _, err := etcdCl.Client.RoleGrantPermission(context.TODO(), appName + "RW", appName + ".", "", clientv3.PermissionType(clientv3.PermReadWrite)); err != nil {
+	if _, err := etcdCl.Client.RoleGrantPermission(context.TODO(), appName + "RW", appName + "/", clientv3.GetPrefixRangeEnd(appName + "/"), clientv3.PermissionType(clientv3.PermReadWrite)); err != nil {
 		return err
 	}
-	if _, err := etcdCl.Client.RoleGrantPermission(context.TODO(), appName + "R", appName + ".", "", clientv3.PermissionType(clientv3.PermRead)); err != nil {
+	if _, err := etcdCl.Client.RoleGrantPermission(context.TODO(), appName + "R", appName + "/", clientv3.GetPrefixRangeEnd(appName + "/"), clientv3.PermissionType(clientv3.PermRead)); err != nil {
 		return err
 	}
 	return nil
@@ -231,7 +244,7 @@ func (app *App) Delete(etcdCl *etcd.EtcdClient) error {
 		return err
 	}
 
-	appVersions, err := app.GetVersions(etcdCl)
+	appVersions, err := app.GetVersions()
 	if err != nil {
 		return err
 	}
@@ -245,11 +258,11 @@ func (app *App) Delete(etcdCl *etcd.EtcdClient) error {
 	}
 
 	//delete app from app list
-	ops = append(ops, clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name))
+	ops = append(ops, clientv3.OpDelete(CONFHUB_APPLICATION_NAMES_PREFIX + app.Name))
 
 	//delete versions
 	for appVer := range appVersions {
-		ops = append(ops, clientv3.OpDelete(CONFHUB_APPLICATIONS_PREFIX + app.Name + ".version." + appVer))
+		ops = append(ops, clientv3.OpDelete(CONFHUB_APPLICATION_VERSIONS_PREFIX + app.Name + appVer))
 	}
 
 	if _, err := etcdCl.Client.Txn(context.TODO()).Then(ops...).Commit(); err != nil {

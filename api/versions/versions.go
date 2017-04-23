@@ -35,8 +35,21 @@ func addVersion(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	if utils.HandleError(ctx, app.CreateVersion(etcdCl, appVersion)) {
+
+	if utils.HandleError(ctx, app.CreateVersion(appVersion)) {
 		return
+	}
+
+	// setting the default version if this version is the first one
+	_, err = app.GetCurrentVersion(etcdCl)
+	if err == application.CurrentVersionNotSetted {
+		if utils.HandleError(ctx, app.SetDefaultVersion(etcdCl, appVersion)) {
+			return
+		}
+	} else {
+		if utils.HandleError(ctx, err) {
+			return
+		}
 	}
 	ctx.SetStatusCode(iris.StatusCreated)
 }
@@ -47,7 +60,7 @@ func copyVersion(ctx *iris.Context) {
 	}
 	appName := ctx.Param("app")
 	srcVersion := ctx.Param("version")
-	destVersion := ctx.FormValue("version")
+	dstVersion := ctx.FormValue("version")
 	etcdCl, err := etcd.LoggedClient(ctx.Get("LoggedUser").(auth.LoggedUser))
 	if utils.HandleError(ctx, err) {
 		return
@@ -66,10 +79,10 @@ func copyVersion(ctx *iris.Context) {
 		return
 	}
 
-	if utils.HandleError(ctx, app.CreateVersion(etcdCl, destVersion)) {
+	if utils.HandleError(ctx, app.CreateVersion(dstVersion)) {
 		return
 	}
-	destCnf, err := app.GetConfigurationVersion(etcdCl, destVersion)
+	destCnf, err := app.GetConfigurationVersion(etcdCl, dstVersion)
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -91,7 +104,7 @@ func getVersions(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	versions, err := app.GetVersions(etcdCl)
+	versions, err := app.GetVersions()
 	if utils.HandleError(ctx, err) {
 		return
 	}
@@ -102,7 +115,7 @@ func getVersions(ctx *iris.Context) {
 		res.Versions[i] = v
 		i++
 	}
-	res.DefaultVersion, err = app.GetCurrentAppVersion(etcdCl)
+	res.DefaultVersion, err = app.GetCurrentVersion(etcdCl)
 	if err != application.CurrentVersionNotSetted && utils.HandleError(ctx, err) {
 		return
 	}
@@ -120,7 +133,20 @@ func deleteVersion(ctx *iris.Context) {
 	if utils.HandleError(ctx, err) {
 		return
 	}
-	if utils.HandleError(ctx, app.DeleteVersion(etcdCl, appVersion)) {
+
+	// check if it's the current version
+	currVer, err := app.GetCurrentVersion(etcdCl)
+	if err != application.CurrentVersionNotSetted && utils.HandleError(ctx, err) {
+		return
+	}
+	if currVer == appVersion {
+		logrus.Warn("cannot remove the current app version")
+		ctx.SetStatusCode(iris.StatusPreconditionFailed)
+		ctx.Writef("Cannot delete the current app version.")
+		return
+	}
+
+	if utils.HandleError(ctx, app.DeleteVersion(appVersion)) {
 		return
 	}
 	ctx.SetStatusCode(iris.StatusNoContent)

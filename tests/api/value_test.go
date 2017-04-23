@@ -16,13 +16,22 @@ func SetValue(t *testing.T, app, version, key, value string) {
 	checkHttpStatus(t, resp, iris.StatusNoContent)
 }
 
-func GetValue(t *testing.T, app, version, key string, expStatus int) []byte {
+func GetValue(t *testing.T, app, version, key string, expStatus int) string {
 	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).Get(ServerUrl + "/api/values/" + app + "/" + version + "/" + key)
 	if err != nil {
 		t.Fatal("getting value", err)
 	}
 	checkHttpStatus(t, resp, expStatus)
-	return resp.Body()
+	return string(resp.Body())
+}
+
+func GetValueFollowingReference(t *testing.T, app, version, key string, expStatus int) string {
+	resp, err := resty.R().SetHeader("Authorization", "Bearer " + Login(t, "root", RootPwd)).SetQueryParam("reference", "true").Get(ServerUrl + "/api/values/" + app + "/" + version + "/" + key)
+	if err != nil {
+		t.Fatal("getting value", err)
+	}
+	checkHttpStatus(t, resp, expStatus)
+	return string(resp.Body())
 }
 
 func DeleteValue(t *testing.T, app, version, key string) {
