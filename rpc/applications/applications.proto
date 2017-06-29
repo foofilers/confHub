@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/empty.proto";
+
+option java_multiple_files = true;
+option java_package = "com.foofilers.cfh";
+option java_outer_classname = "CfhApplicationService";
+
+package applications;
+
+service Applications {
+  rpc List (ApplicationListRequest) returns (stream Application);
+  rpc Add (Application) returns (Application);
+  rpc Delete (DeleteRequest) returns (google.protobuf.Empty);
+  rpc Get (ApplicationGetRequest) returns (Application);
+  rpc Watch (ApplicationWatchRequest) returns (stream ApplicationWatch);
+}
+
+message ApplicationWatch {
+  bool hearthbeat = 1;
+  Application application = 2;
+}
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message ApplicationWatchRequest {
+  string name = 1;
+}
+
+message ApplicationGetRequest {
+  string name = 1;
+  string version = 2;
+}
+
+message ApplicationListRequest {
+  Application search = 1;
+  string order = 2;
+  int32 page = 3;
+  int32 count = 4;
+}
+
+
+message Application {
+  string id = 1;
+  string name = 2;
+  string version = 3;
+  google.protobuf.Struct configuration = 4;
+}

@@ -1,0 +1,6 @@
+environment: "dev"
+db:
+  host: "localhost"
+  name: "cfh"
+jwt:
+  secret: "122kjnscdfkJAsdui213892eds$nwF23"

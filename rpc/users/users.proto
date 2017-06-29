@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option java_multiple_files = true;
+option java_package = "com.foofilers.cfh";
+option java_outer_classname = "CfhUserService";
+
+package users;
+
+service Users {
+  rpc List (UserListRequest) returns (stream User);
+  rpc Add (User) returns (User);
+  rpc Delete (DeleteRequest) returns (google.protobuf.Empty);
+}
+
+
+message DeleteRequest {
+  string id = 1;
+}
+
+message UserListRequest {
+  string query = 1;
+  string order = 2;
+  int32 page = 3;
+  int32 count = 4;
+}
+
+message Permission {
+  string application = 1;
+  repeated string perm = 2;
+}
+
+message User {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  repeated Permission permissions = 4;
+}
