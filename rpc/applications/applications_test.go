@@ -11,22 +11,42 @@ import (
 	"time"
 	"fmt"
 	"github.com/jinzhu/copier"
+	"github.com/foofilers/cfhd/rpc/auth"
+	"google.golang.org/grpc/metadata"
+	"log"
+	"github.com/sirupsen/logrus"
 )
 
 var Conn *grpc.ClientConn
 var createdApplication *Application
 
 func TestMain(m *testing.M) {
+	logrus.SetLevel(logrus.DebugLevel)
 	var err error
 	Conn, err = grpc.Dial("localhost:50051", grpc.WithInsecure())
 	defer Conn.Close()
 	if err != nil {
 		panic(err)
 	}
+
 	m.Run()
 }
 
+func getAuthContext(username, password string) context.Context {
+	authClient := auth.NewAuthClient(Conn)
+	jwt, err := authClient.Login(context.TODO(), &auth.LoginRequest{
+		Username:username,
+		Password:password,
+	})
+	if err != nil {
+		log.Fatal(err)
+		panic(err)
+	}
+	return metadata.NewContext(context.TODO(), metadata.Pairs("authorization", "Bearer " + jwt.Jwt))
+}
+
 func TestAddApplication(t *testing.T) {
+
 	applClient := NewApplicationsClient(Conn)
 	app := &Application{
 		Name:util.RandStringRunes(8),
@@ -52,8 +72,7 @@ func TestAddApplication(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("%+v", app.Configuration)
-
-	_, err = applClient.Add(context.TODO(), app)
+	_, err = applClient.Add(getAuthContext("admin","admin"), app)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +99,8 @@ func TestListAllApplication(t *testing.T) {
 		t.Skip("previous test [TestAddApplication] in error ")
 	}
 	applClient := NewApplicationsClient(Conn)
-	apps, err := applClient.List(context.TODO(), &ApplicationListRequest{})
+
+	apps, err := applClient.List(getAuthContext("admin","admin"), &ApplicationListRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +125,7 @@ func TestListSpecificApplication(t *testing.T) {
 		t.Skip("previous test [TestAddApplication] in error ")
 	}
 	applClient := NewApplicationsClient(Conn)
-	apps, err := applClient.List(context.TODO(), &ApplicationListRequest{
+	apps, err := applClient.List(getAuthContext("admin","admin"), &ApplicationListRequest{
 		Search:&Application{
 			Name:createdApplication.Name,
 		},
@@ -124,10 +144,11 @@ func TestListSpecificApplication(t *testing.T) {
 			t.Fatal(err)
 		}
 		app = currApp
+		logrus.Debugf("%+v", currApp)
 		i++
 	}
 	if i != 1 {
-		t.Fatal("Should be found only one application")
+		t.Fatalf("Should be found only one application but I've found %d", i)
 	}
 	if !reflect.DeepEqual(app, createdApplication) {
 		t.Errorf("%+v\nshould be\n%+v", app, createdApplication)
@@ -142,7 +163,7 @@ func TestWatch(t *testing.T) {
 	}
 	applClient := NewApplicationsClient(Conn)
 
-	apps, err := applClient.Watch(context.TODO(), &ApplicationWatchRequest{Name:createdApplication.Name})
+	apps, err := applClient.Watch(getAuthContext("admin","admin"), &ApplicationWatchRequest{Name:createdApplication.Name})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +172,7 @@ func TestWatch(t *testing.T) {
 			var newApp Application
 			copier.Copy(&newApp, createdApplication)
 			newApp.Version = fmt.Sprintf("2.0.%d", i)
-			applClient.Add(context.TODO(), &newApp)
+			applClient.Add(getAuthContext("admin","admin"), &newApp)
 			time.Sleep(2 * time.Second)
 		}
 	}()

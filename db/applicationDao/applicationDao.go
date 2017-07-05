@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/mgo.v2/bson"
 	"github.com/sirupsen/logrus"
-	"github.com/fatih/structs"
 	"gopkg.in/mgo.v2"
 	"time"
 )
@@ -43,16 +42,12 @@ func Get(name, version string) (*models.Application, error) {
 	return &result, err
 }
 
-func List(search *models.Application, page, count int32, order string) ([]models.Application, error) {
+func List(search  bson.M, page, count int32, order string) ([]models.Application, error) {
 	sess := db.Session.Clone()
 	defer sess.Close()
 	var result []models.Application
-	srcParam := bson.M{}
-	if search != nil {
-		srcParam = structs.Map(search)
-	}
-	logrus.Debugf("applicationDao:list application query filter:%+v", srcParam)
-	query := sess.DB(viper.GetString("db.name")).C(db.COLLECTION_APPLICATIONS).Find(srcParam)
+	logrus.Debugf("applicationDao:list application query filter:%+v", search)
+	query := sess.DB(viper.GetString("db.name")).C(db.COLLECTION_APPLICATIONS).Find(search)
 	if len(order) > 0 {
 		query.Sort(order)
 	}

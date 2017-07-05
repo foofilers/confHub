@@ -8,29 +8,12 @@ import (
 	"github.com/foofilers/cfhd/rpc/applications"
 	"github.com/sirupsen/logrus"
 	"sync"
-	"google.golang.org/grpc/metadata"
-	"golang.org/x/net/context"
-	"errors"
-	"github.com/foofilers/cfhd/auth"
+	auth_rpc "github.com/foofilers/cfhd/rpc/auth"
 )
 
 var grpcServer *grpc.Server
 
-func GetAuthUser(ctx context.Context) (string, error) {
-	md, ok := metadata.FromContext(ctx)
-	if !ok {
-		return "", errors.New("cannot retrieve metadata from context")
-	}
-	authorizationHeaders := md["authorization"]
-	if len(authorizationHeaders) == 0 {
-		return "", errors.New("authentication required")
-	}
-	user, err := auth.ValidateJwt(authorizationHeaders[0])
-	if err != nil {
-		return "", errors.New("authentication required")
-	}
-	return user, nil
-}
+
 
 func Start(port string, wg *sync.WaitGroup, quitCh chan bool) {
 	logrus.Info("starting GRPC")
@@ -50,6 +33,7 @@ func Start(port string, wg *sync.WaitGroup, quitCh chan bool) {
 
 	grpcServer = grpc.NewServer()
 
+	auth_rpc.RegisterAuthServer(grpcServer, &auth_rpc.AuthService{})
 	users.RegisterUsersServer(grpcServer, &users.UserService{})
 	applications.RegisterApplicationsServer(grpcServer, &applications.ApplicationService{})
 

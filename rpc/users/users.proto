@@ -10,10 +10,14 @@ package users;
 
 service Users {
   rpc List (UserListRequest) returns (stream User);
-  rpc Add (User) returns (User);
+  rpc Add (AddUserRequest) returns (User);
   rpc Delete (DeleteRequest) returns (google.protobuf.Empty);
 }
 
+message AddUserRequest {
+  User user = 1;
+  string password = 2;
+}
 
 message DeleteRequest {
   string id = 1;
@@ -35,5 +39,6 @@ message User {
   string id = 1;
   string username = 2;
   string email = 3;
-  repeated Permission permissions = 4;
+  bool admin = 4;
+  repeated Permission permissions = 5;
 }

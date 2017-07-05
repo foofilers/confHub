@@ -27,7 +27,11 @@ func TestAddUser(t *testing.T) {
 		Username:util.RandStringRunes(8),
 		Email:"n3wtron@gmail.com",
 	}
-	insertedUser, err := userCl.Add(context.TODO(), user)
+	userRequest:=&AddUserRequest{
+		User:user,
+		Password:"password",
+	}
+	insertedUser, err := userCl.Add(context.TODO(), userRequest)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -44,13 +44,18 @@ func db2Application(app *models.Application) (*Application, error) {
 }
 
 func (service *ApplicationService) List(params *ApplicationListRequest, stream Applications_ListServer) error {
+	user, authError := util.GetAuthUser(stream.Context())
+	if authError != nil {
+		return authError
+	}
+
 	logrus.Infof("ListApplication params:[%+v]", params)
 	search, err := application2Db(params.Search)
 	if err != nil {
 		logrus.Error(err)
 		return err
 	}
-	apps, err := applicationManager.ListApplication(search, params.Page, params.Count, params.Order)
+	apps, err := applicationManager.ListApplication(search, params.Page, params.Count, params.Order, user)
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -75,6 +80,10 @@ func (service *ApplicationService) Get(ctx context.Context, request *Application
 }
 
 func (service *ApplicationService) Add(ctx context.Context, application *Application) (*Application, error) {
+	_, authError := util.GetAuthUser(ctx)
+	if authError != nil {
+		return nil, authError
+	}
 	app, err := application2Db(application)
 	if err != nil {
 		return nil, err
@@ -83,22 +92,20 @@ func (service *ApplicationService) Add(ctx context.Context, application *Applica
 }
 
 func (service *ApplicationService) Delete(ctx context.Context, request *DeleteRequest) (*empty.Empty, error) {
-
 	return &empty.Empty{}, errors.New("Not implemented")
 }
 
 func (service *ApplicationService) Watch(params *ApplicationWatchRequest, stream Applications_WatchServer) error {
-	/*var userId string
-	var authError error
-	if userId, authError = rpc.GetAuthUser(stream.Context()); authError != nil {
-		return grpc.Errorf(code.Code_UNAUTHENTICATED, authError.Error())
-	}*/
+	user, authError := util.GetAuthUser(stream.Context())
+	if authError != nil {
+		return authError
+	}
 
 	appsCh := make(chan *models.Application)
 	defer close(appsCh)
 	stopCh := make(chan bool)
 	defer close(stopCh)
-	applicationManager.WatchApplication(params.Name, appsCh, stopCh)
+	applicationManager.WatchApplication(params.Name, appsCh, stopCh, user)
 	streamClosed := false
 	for !streamClosed {
 		select {
